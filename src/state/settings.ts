@@ -59,7 +59,13 @@ async function persistDb(settings: AppSettings): Promise<void> {
 }
 
 export const useSettings = create<SettingsState>()((set, get) => {
+  // Pilihan yang dibuat saat pemuatan masih berjalan (tema diklik sebelum
+  // IndexedDB terbaca) sudah disimpan save(); nilai baca di bawah diambil
+  // lebih awal dan tidak boleh menimpanya.
+  let changedDuringLoad = false
+
   const save = (patch: Partial<AppSettings>) => {
+    if (!get().settingsLoaded) changedDuringLoad = true
     const settings = { ...get().settings, ...patch }
     set({ settings })
     persistLocal(settings)
@@ -74,6 +80,7 @@ export const useSettings = create<SettingsState>()((set, get) => {
     setLastMethod: (lastMethod) => save({ lastMethod }),
     setActiveTask: (activeTaskId) => save({ activeTaskId }),
     load: async () => {
+      changedDuringLoad = false
       const local = read<AppSettings>(
         SETTINGS_KEY,
         { ...DEFAULT_SETTINGS },
@@ -89,10 +96,14 @@ export const useSettings = create<SettingsState>()((set, get) => {
         set({ databaseAvailable: false })
       }
 
-      const settings = fromDb ?? parseSettings(local)
-      if (!fromDb) void persistDb(settings)
-      set({ settings, settingsLoaded: true })
-      persistLocal(settings)
+      if (changedDuringLoad) {
+        set({ settingsLoaded: true })
+      } else {
+        const settings = fromDb ?? parseSettings(local)
+        if (!fromDb) void persistDb(settings)
+        set({ settings, settingsLoaded: true })
+        persistLocal(settings)
+      }
 
       if (!storageWorks()) {
         console.warn('Ritme: localStorage tidak bisa ditulis, preferensi tidak bertahan')
