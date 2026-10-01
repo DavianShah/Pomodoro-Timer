@@ -368,9 +368,9 @@ export default function TimerScreen() {
             id="petunjuk-shortcut"
             className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-muted"
           >
-            <li>Spasi · mulai/jeda</li>
+            <li>{method.mode === 'boxing' ? 'Spasi · mulai' : 'Spasi · mulai/jeda'}</li>
             <li>R · reset</li>
-            <li>S · lewati</li>
+            <li>{method.mode === 'boxing' ? 'S · selesai blok' : 'S · lewati'}</li>
             <li>M · jendela mini</li>
             <li>1–5 · ganti metode</li>
             <li>T · task</li>

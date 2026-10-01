@@ -321,3 +321,49 @@ test('blok via drag: Lanjut 15, Geser setelah blok lewat, persist ulang muat', a
   await expect(promptRow(page)).toHaveCount(0)
   await expect.poll(async () => timerValue(page, 'endTime')).toBeNull()
 })
+
+test('Spasi: mulai blok saat idle, tidak mengakhiri blok saat berjalan', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: /Time boxing/ }).click()
+
+  // Satu blok yang menutup sekarang, lewat form.
+  const minute = await nowMinute(page)
+  const start = Math.max(0, Math.floor((minute - 1) / 15) * 15)
+  const end = Math.min(start + 30, 1440)
+  await page.getByRole('button', { name: 'Jadwal', exact: true }).click()
+  const panel = page.locator('#panel-jadwal')
+  await page.getByRole('button', { name: 'Tambah blok', exact: true }).click()
+  await page.locator('#blok-mulai').fill(hhmm(start))
+  await page.locator('#blok-selesai').fill(hhmm(end))
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click()
+  await expect.poll(async () => (await readBlocks(page)).length).toBeGreaterThanOrEqual(1)
+  await panel.getByRole('button', { name: 'Tutup', exact: true }).click()
+
+  // Spasi dijalankan dari body: perilaku native tombol fokus bukan shortcut.
+  const blur = async (): Promise<void> => {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  }
+  const status = page.locator('main [aria-live="polite"]')
+  const running = page.getByRole('button', { name: 'Selesai', exact: true })
+  const idle = page.getByRole('button', { name: 'Mulai', exact: true })
+
+  await blur()
+  await page.keyboard.press('Space')
+  await expect(running).toBeVisible()
+  await expect(status).toContainText('Fokus ·')
+
+  // Spasi saat berjalan: state tidak berubah — blok tidak ditutup.
+  await blur()
+  const before = await status.textContent()
+  await page.keyboard.press('Space')
+  await page.waitForTimeout(600)
+  await expect(running).toBeVisible()
+  await expect(idle).toHaveCount(0)
+  await expect(status).toHaveText(before ?? '')
+  await expect(promptRow(page)).toHaveCount(0)
+  expect((await readBlocks(page)).some((block) => block.status === 'running')).toBe(true)
+
+  // S tetap satu-satunya shortcut penutup blok.
+  await page.keyboard.press('s')
+  await expect(idle).toBeVisible()
+})

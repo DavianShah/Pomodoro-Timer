@@ -5,6 +5,10 @@
  * Spasi tidak men-scroll dan tidak menekan tombol ganda (target button/a
  * dibiarkan aktif secara native).
  *
+ * Time Boxing berbeda: Spasi hanya memulai (butuh blok aktif) dan saat
+ * berjalan tidak melakukan apa-apa — blok ditutup lewat tombol Selesai
+ * atau shortcut S, tidak lewat Spasi.
+ *
  * Listener dipasang di window yang diberikan — halaman utama memakai
  * window-nya sendiri, jendela mini memasang listener di window mini
  * supaya spasi/R jalan saat fokus di sana.
@@ -87,11 +91,14 @@ export interface TimerShortcutHooks {
   host?: Window
 }
 
+/** Aksi sengaja kosong (mis. Spasi saat Time Boxing berjalan). */
+const noop = (): void => {}
+
 /** Shortcut alur timer — dipakai layar utama dan jendela mini (F4). */
 export function useTimerShortcuts(timer: TimerApi, hooks: TimerShortcutHooks = {}): void {
   const setLastMethod = useSettings((state) => state.setLastMethod)
   const { onMini = null, onTasks = null, host } = hooks
-  // Time Boxing: jeda tak berarti — Spasi saat berjalan menutup blok (Selesai).
+  // Time Boxing: Spasi saat berjalan tidak mengakhiri blok (PRD F7).
   const boxing = methodById(timer.state.method).mode === 'boxing'
 
   const selectMethod = useCallback(
@@ -109,7 +116,7 @@ export function useTimerShortcuts(timer: TimerApi, hooks: TimerShortcutHooks = {
       running: timer.state.running,
       methodEditable: timer.methodEditable,
       start: timer.start,
-      pause: boxing ? timer.skip : timer.pause,
+      pause: boxing ? noop : timer.pause,
       skip: timer.skip,
       reset: timer.reset,
       onMini,
