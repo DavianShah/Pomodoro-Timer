@@ -25,7 +25,7 @@ export default function ThemeToggle() {
                 'cursor-pointer rounded-sm border px-2 py-1 text-xs transition-colors ' +
                 (active
                   ? 'border-ink text-ink'
-                  : 'border-line text-ink-muted hover:border-line-strong hover:text-ink')
+                  : 'border-line-strong text-ink-muted hover:border-ink-muted hover:text-ink')
               }
             >
               <input

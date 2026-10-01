@@ -15,7 +15,7 @@ export default function App() {
     <ThemeProvider>
       <a
         href="#kontrol-timer"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-10 focus:rounded-md focus:border focus:border-line focus:bg-paper-raised focus:px-4 focus:py-2 focus:text-sm"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-10 focus:rounded-md focus:border focus:border-line-strong focus:bg-paper-raised focus:px-4 focus:py-2 focus:text-sm"
       >
         Lompat ke kontrol timer
       </a>

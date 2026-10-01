@@ -45,7 +45,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!assets/|fonts/|icon|manifest\\.webmanifest|sw\\.js|registerSW\\.js|theme-boot\\.js).*)",
+      "source": "/((?!assets/|fonts/|icon|manifest\\.webmanifest|sw\\.js|registerSW\\.js|theme-boot\\.js|LICENSE\\.md).*)",
       "destination": "/index.html"
     }
   ]

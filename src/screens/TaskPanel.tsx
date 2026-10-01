@@ -67,7 +67,7 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md border border-line px-3 py-1 text-xs text-ink-muted transition-colors hover:border-line-strong"
+          className="rounded-md border border-line-strong px-3 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
         >
           Tutup
         </button>
@@ -90,7 +90,7 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Nama task"
               autoComplete="off"
-              className="w-full rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
+              className="w-full rounded-md border border-line-strong bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
             />
             <p className="mt-1.5 text-xs text-ink-muted">Enter untuk menambah.</p>
           </form>
@@ -112,7 +112,7 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
                         autoFocus
                         value={editDraft}
                         onChange={(event) => setEditDraft(event.target.value)}
-                        className="w-full rounded-md border border-line bg-paper px-2 py-1.5 text-sm text-ink"
+                        className="w-full rounded-md border border-line-strong bg-paper px-2 py-1.5 text-sm text-ink"
                       />
                       <p className="mt-1 text-xs text-ink-muted">Enter simpan, Esc batal.</p>
                     </form>
@@ -160,21 +160,21 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
                   <button
                     type="button"
                     onClick={() => void toggleDone(task.id)}
-                    className="rounded-md border border-line px-2 py-1 text-xs text-ink-muted transition-colors hover:border-line-strong"
+                    className="rounded-md border border-line-strong px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                   >
                     {task.doneAt ? 'Aktifkan' : 'Selesai'}
                   </button>
                   <button
                     type="button"
                     onClick={() => startEdit(task.id, task.title)}
-                    className="rounded-md border border-line px-2 py-1 text-xs text-ink-muted transition-colors hover:border-line-strong"
+                    className="rounded-md border border-line-strong px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                   >
                     Ubah
                   </button>
                   <button
                     type="button"
                     onClick={() => void remove(task.id)}
-                    className="rounded-md border border-line px-2 py-1 text-xs text-ink-muted transition-colors hover:border-line-strong"
+                    className="rounded-md border border-line-strong px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                   >
                     Hapus
                   </button>

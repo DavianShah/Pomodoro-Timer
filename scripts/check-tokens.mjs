@@ -90,6 +90,7 @@ const rows = [
   ['ink', 'ink', 'Tinta utama'],
   ['ink-muted', 'inkMuted', 'Teks sekunder'],
   ['line', 'line', 'Garis pemisah'],
+  ['line-strong', 'lineStrong', 'Batas interaktif (WCAG 1.4.11)'],
   ['accent', 'accentFocus', 'Aksen fokus'],
   ['accent-focus', 'accentFocus', 'Aksen grafik tanpa ikut fase'],
   ['accent-break', 'accentBreak', 'Aksen istirahat'],

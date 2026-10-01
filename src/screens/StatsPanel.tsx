@@ -72,7 +72,7 @@ export default function StatsPanel({ onClose }: StatsPanelProps) {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md border border-line px-3 py-1 text-xs text-ink-muted transition-colors hover:border-line-strong"
+          className="rounded-md border border-line-strong px-3 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
         >
           Tutup
         </button>

@@ -43,10 +43,17 @@ describe('kontras token tema', () => {
         })
       }
 
-      it('garis pemisah terlihat (>= 3:1, elemen non-teks)', () => {
+      it('batas interaktif di atas latar (>= 3:1, elemen non-teks)', () => {
         expect(
           meetsAA(theme.lineStrong, theme.paper, true),
-          `garis: ${contrastRatio(theme.lineStrong, theme.paper).toFixed(2)}:1`,
+          `batas interaktif: ${contrastRatio(theme.lineStrong, theme.paper).toFixed(2)}:1`,
+        ).toBe(true)
+      })
+
+      it('batas interaktif di atas permukaan naik (>= 3:1, elemen non-teks)', () => {
+        expect(
+          meetsAA(theme.lineStrong, theme.paperRaised, true),
+          `batas interaktif di permukaan naik: ${contrastRatio(theme.lineStrong, theme.paperRaised).toFixed(2)}:1`,
         ).toBe(true)
       })
 

@@ -32,6 +32,7 @@ angka tidak dianimasikan, satu hal dominan per layar.
 | `--ink` | `#1b1a17` | `#f2eee6` | Tinta utama |
 | `--ink-muted` | `#67614f` | `#b3a996` | Teks sekunder |
 | `--line` | `#d3cbbb` | `#3a352b` | Garis pemisah |
+| `--line-strong` | `#857a64` | `#7b7462` | Batas interaktif (WCAG 1.4.11) |
 | `--accent` | `#a8441f` | `#d4682f` | Aksen fokus |
 | `--accent-focus` | `#a8441f` | `#d4682f` | Aksen grafik tanpa ikut fase |
 | `--accent-break` | `#3f5c39` | `#6d8c62` | Aksen istirahat |

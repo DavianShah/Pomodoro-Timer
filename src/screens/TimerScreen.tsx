@@ -132,7 +132,7 @@ export default function TimerScreen() {
             <button
               type="button"
               onClick={timer.pause}
-              className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
+              className="rounded-md border border-line-strong px-5 py-3 text-sm text-ink-muted transition-colors hover:border-ink-muted"
             >
               Jeda
             </button>
@@ -141,7 +141,7 @@ export default function TimerScreen() {
             type="button"
             aria-pressed={mini.win !== null}
             onClick={mini.toggle}
-            className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
+            className="rounded-md border border-line-strong px-5 py-3 text-sm text-ink-muted transition-colors hover:border-ink-muted"
           >
             Jendela mini
           </button>
@@ -151,7 +151,7 @@ export default function TimerScreen() {
             aria-expanded={tasksOpen}
             aria-controls="panel-task"
             onClick={toggleTasksPanel}
-            className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
+            className="rounded-md border border-line-strong px-5 py-3 text-sm text-ink-muted transition-colors hover:border-ink-muted"
           >
             Task
           </button>
@@ -161,7 +161,7 @@ export default function TimerScreen() {
             aria-expanded={statsOpen}
             aria-controls="panel-statistik"
             onClick={toggleStats}
-            className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
+            className="rounded-md border border-line-strong px-5 py-3 text-sm text-ink-muted transition-colors hover:border-ink-muted"
           >
             Statistik
           </button>
@@ -196,7 +196,7 @@ export default function TimerScreen() {
                       (selectable ? '' : 'cursor-not-allowed ') +
                       (active
                         ? 'border-ink bg-ink text-paper'
-                        : 'border-line hover:border-line-strong')
+                        : 'border-line-strong hover:border-ink-muted')
                     }
                   >
                     <span className="angka row-span-2 self-center text-base">{index + 1}</span>
@@ -215,12 +215,20 @@ export default function TimerScreen() {
           <ThemeToggle />
           <div className="flex items-center gap-4">
             <p className="text-sm text-ink-muted">M4b: statistik, streak, dan tema jalan.</p>
+            <a
+              href="/LICENSES.md"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-ink-muted underline underline-offset-2 hover:text-ink"
+            >
+              Lisensi font
+            </a>
             <button
               type="button"
               aria-expanded={showHelp}
               aria-controls="petunjuk-shortcut"
               onClick={() => setShowHelp((open) => !open)}
-              className="h-8 w-8 shrink-0 rounded-md border border-line text-sm text-ink-muted transition-colors hover:border-line-strong"
+              className="h-8 w-8 shrink-0 rounded-md border border-line-strong text-sm text-ink-muted transition-colors hover:border-ink-muted"
             >
               ?
             </button>
