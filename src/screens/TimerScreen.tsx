@@ -206,6 +206,7 @@ export default function TimerScreen() {
           {!isPrompt && (
             <button
               type="button"
+              data-primary-action=""
               onClick={primary.action}
               className="rounded-md bg-accent px-7 py-3 text-base font-semibold text-ink-inverse transition-colors hover:bg-accent-strong"
             >

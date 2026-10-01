@@ -234,11 +234,30 @@ test('shortcut: spasi mulai/jeda, angka ganti metode, R reset, S lewati', async 
   await page.getByRole('button', { name: '?' }).click()
   await expect(page.getByText('Spasi · mulai/jeda')).toBeVisible()
 
-  // Spasi saat fokus di tombol: satu aksi (native), tanpa ganda.
+  // Spasi saat fokus di tombol aksi utama: satu aksi lewat shortcut
+  // (aktivasi native dicegah), tanpa ganda.
   await page.getByRole('button', { name: 'Mulai istirahat' }).click()
   await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
   await page.keyboard.press('Space')
   await expect(page.getByRole('button', { name: 'Mulai istirahat' })).toBeVisible()
+})
+
+test('Spasi tanpa blur setelah klik Mulai: jeda tepat satu kali, bukan dua', async ({ page }) => {
+  await page.goto('/')
+  const clock = page.locator('h1')
+  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+
+  // Fokus tetap di tombol utama yang kini berlabel Jeda — tanpa blur.
+  await page.waitForTimeout(1_100)
+  await page.keyboard.press('Space')
+
+  // Kembali jeda, bukan "jeda lalu start lagi" karena aktivasi native.
+  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toHaveCount(0)
+  const paused = await clock.textContent()
+  await page.waitForTimeout(1_300)
+  await expect(clock).toHaveText(paused ?? '')
 })
 
 test('judul tab: nama aplikasi saat idle, sisa waktu saat jalan', async ({ page }) => {

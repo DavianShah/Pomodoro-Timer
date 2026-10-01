@@ -224,6 +224,51 @@ test('blok via form: mulai di dalam blok, akhir blok terlewati → baris pilihan
   await expect(status).toContainText('Fokus ·')
 })
 
+test('Spasi tanpa blur setelah Mulai: blok berjalan tidak berakhir, sesi tidak tercatat', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: /Time boxing/ }).click()
+  await expect(page.getByRole('button', { name: /Time boxing/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  // Satu blok yang menutup menit sekarang → Mulai langsung di dalam blok.
+  const minute = await nowMinute(page)
+  const start = Math.max(0, Math.floor((minute - 1) / 15) * 15)
+  const end = Math.min(start + 30, 1440)
+
+  await page.getByRole('button', { name: 'Jadwal', exact: true }).click()
+  const panel = page.locator('#panel-jadwal')
+  await expect(panel).toBeVisible()
+  await page.getByRole('button', { name: 'Tambah blok', exact: true }).click()
+  await page.locator('#blok-mulai').fill(hhmm(start))
+  await page.locator('#blok-selesai').fill(hhmm(end))
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click()
+  await expect.poll(async () => (await readBlocks(page)).length).toBeGreaterThanOrEqual(1)
+  await panel.getByRole('button', { name: 'Tutup', exact: true }).click()
+  await expect(panel).toBeHidden()
+
+  const clock = page.locator('main h1')
+  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  // Fokus tetap di tombol utama yang kini berlabel Selesai — tanpa blur.
+  await expect(page.getByRole('button', { name: 'Selesai', exact: true }).first()).toBeVisible()
+  await page.waitForTimeout(1_200)
+  await page.keyboard.press('Space')
+
+  // Blok tetap berjalan: tanpa baris pilihan, jam maju, tanpa "Blok selesai".
+  await expect(promptRow(page)).toHaveCount(0)
+  await expect(page.locator('main [aria-live="polite"]')).not.toHaveText('Blok selesai')
+  const after = await clock.textContent()
+  await page.waitForTimeout(1_200)
+  await expect(clock).not.toHaveText(after ?? '')
+
+  // Sesi tidak tercatat: Space tidak mengaktifkan tombol Selesai.
+  await page.getByRole('button', { name: 'Statistik', exact: true }).click()
+  await expect(page.locator('#panel-statistik')).toContainText('Belum ada sesi fokus')
+})
+
 test('blok via drag: Lanjut 15, Geser setelah blok lewat, persist ulang muat', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: /Time boxing/ }).click()

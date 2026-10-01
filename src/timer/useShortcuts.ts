@@ -2,8 +2,15 @@
  * Shortcut keyboard (PRD F7): Spasi mulai/jeda, R reset, S lewati,
  * M jendela mini, 1-5 ganti metode saat idle. Mati saat fokus di
  * input/textarea/select, saat ada modifier, dan saat key auto-repeat.
- * Spasi tidak men-scroll dan tidak menekan tombol ganda (target button/a
- * dibiarkan aktif secara native).
+ * Spasi tidak men-scroll.
+ *
+ * Spasi menjalankan semantik shortcut global di mana pun fokus, kecuali
+ * di input. Aktivasi native dicegah hanya pada tombol aksi utama
+ * ([data-primary-action]): labelnya berubah di bawah fokus (Mulai → Jeda
+ * → Mulai, atau Mulai → Selesai di Time Boxing), sehingga Spasi bisa
+ * mengaktifkan label baru yang salah. Enter dan klik tetap mengaktifkan
+ * tombol utama; tombol/link lain mempertahankan aktivasi native Spasi
+ * (perilaku aksesibilitas standar).
  *
  * Time Boxing berbeda: Spasi hanya memulai (butuh blok aktif) dan saat
  * berjalan tidak melakukan apa-apa — blok ditutup lewat tombol Selesai
@@ -56,9 +63,12 @@ export function useShortcuts(options: ShortcutOptions, host: Window = window): v
       const opts = optionsRef.current
 
       if (event.key === ' ') {
-        // Tombol/link sudah punya perilaku native Spasi — jangan gandakan.
-        if (near(event.target, 'button, a')) return
-        event.preventDefault()
+        // Tombol aksi utama: labelnya berubah di bawah fokus, jadi aktivasi
+        // native Spasi dimatikan (keydown + keyup) supaya hanya semantik
+        // shortcut yang jalan. Tombol/link lain dibiarkan native.
+        const primary = near(event.target, '[data-primary-action]') !== null
+        const control = near(event.target, 'button, a') !== null
+        if (primary || !control) event.preventDefault()
         if (opts.running) opts.pause()
         else opts.start()
         return
@@ -77,8 +87,20 @@ export function useShortcuts(options: ShortcutOptions, host: Window = window): v
       else if (letter === 't') opts.onTasks?.()
     }
 
+    const onKeyUp = (event: KeyboardEvent): void => {
+      // Beberapa mesin mengaktifkan tombol saat keyup Spasi; dibatalkan
+      // hanya untuk tombol aksi utama (lihat catatan di onKeyDown).
+      if (event.key === ' ' && near(event.target, '[data-primary-action]') !== null) {
+        event.preventDefault()
+      }
+    }
+
     host.addEventListener('keydown', onKeyDown)
-    return () => host.removeEventListener('keydown', onKeyDown)
+    host.addEventListener('keyup', onKeyUp)
+    return () => {
+      host.removeEventListener('keydown', onKeyDown)
+      host.removeEventListener('keyup', onKeyUp)
+    }
   }, [host])
 }
 

@@ -100,6 +100,7 @@ export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: Mini
 
       <button
         type="button"
+        data-primary-action=""
         onClick={action}
         className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-ink-inverse transition-colors hover:bg-accent-strong"
       >
