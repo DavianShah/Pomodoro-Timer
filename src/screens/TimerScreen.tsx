@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ThemeToggle from './ThemeToggle'
+import MiniWindow from './MiniWindow'
 import { METHOD_CONFIGS, methodById, methodDetail } from '@/timer/methods'
-import { formatClock, plannedPhaseMs } from '@/timer/engine'
-import { sessionStatus } from '@/timer/labels'
+import { formatClock } from '@/timer/engine'
+import { primaryLabel, sessionProgress, sessionStatus } from '@/timer/labels'
 import { useTimer } from '@/timer/useTimer'
-import { useShortcuts } from '@/timer/useShortcuts'
+import { useMiniWindow } from '@/timer/useMiniWindow'
+import { useTimerShortcuts } from '@/timer/useShortcuts'
 import { useSettings } from '@/state/settings'
 
 export default function TimerScreen() {
@@ -21,43 +23,18 @@ export default function TimerScreen() {
 
   const [showHelp, setShowHelp] = useState(false)
 
-  const selectMethod = useCallback(
-    (index: number) => {
-      const config = METHOD_CONFIGS[index]
-      if (!config || config.mode === 'disabled') return
-      if (!timer.methodEditable) return
-      setLastMethod(config.id)
-    },
-    [setLastMethod, timer.methodEditable],
-  )
+  const mini = useMiniWindow(state.running)
 
-  useShortcuts({
-    running: state.running,
-    methodEditable: timer.methodEditable,
-    start: timer.start,
-    pause: timer.pause,
-    skip: timer.skip,
-    reset: timer.reset,
-    onMini: null,
-    selectMethod,
-  })
+  useTimerShortcuts(timer, { onMini: mini.toggle })
 
   const countupFocus = method.mode === 'countup' && state.phase === 'focus'
-  const primary =
-    countupFocus && state.running
-      ? { label: 'Selesai', action: timer.skip }
-      : state.running
-        ? { label: 'Jeda', action: timer.pause }
-        : {
-            label: state.phase === 'focus' ? 'Mulai' : 'Mulai istirahat',
-            action: timer.start,
-          }
+  const label = primaryLabel(state)
+  const primary = {
+    label,
+    action: label === 'Selesai' ? timer.skip : label === 'Jeda' ? timer.pause : timer.start,
+  }
 
-  const planned = plannedPhaseMs(method.id, state.phase)
-  const progress =
-    method.mode === 'countdown' && planned > 0
-      ? Math.round((1 - Math.min(1, timer.display / planned)) * 100)
-      : 0
+  const progress = sessionProgress(state, timer.display)
 
   const status = sessionStatus(method, state.cycleIndex, state.phase)
 
@@ -114,8 +91,9 @@ export default function TimerScreen() {
           )}
           <button
             type="button"
-            aria-disabled="true"
-            className="cursor-not-allowed rounded-md border border-line px-5 py-3 text-sm text-ink-muted"
+            aria-pressed={mini.win !== null}
+            onClick={mini.toggle}
+            className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
           >
             Jendela mini
           </button>
@@ -124,6 +102,12 @@ export default function TimerScreen() {
         {timer.soundBlocked && (
           <p role="status" className="mt-4 w-full text-center text-xs text-ink-muted">
             Suara alarm belum aktif
+          </p>
+        )}
+
+        {mini.blocked && (
+          <p role="status" className="mt-4 w-full text-center text-xs text-ink-muted">
+            Popup diblokir — jendela mini tidak terbuka
           </p>
         )}
 
@@ -160,9 +144,7 @@ export default function TimerScreen() {
 
       <footer className="border-t border-line px-6 py-4 sm:px-10">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-ink-muted">
-            M2: notifikasi sesi, shortcut, dan pemulihan state sudah jalan.
-          </p>
+          <p className="text-sm text-ink-muted">M3: jendela mini sudah jalan.</p>
           <button
             type="button"
             aria-expanded={showHelp}
@@ -186,6 +168,8 @@ export default function TimerScreen() {
           </ul>
         )}
       </footer>
+
+      {mini.win !== null && <MiniWindow win={mini.win} timer={timer} onMiniToggle={mini.toggle} />}
     </div>
   )
 }

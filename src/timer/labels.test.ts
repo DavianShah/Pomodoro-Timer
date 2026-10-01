@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { createTimer, start } from './engine'
+import { createTimer, skip, start } from './engine'
 import { MINUTE, methodById } from './methods'
-import { APP_TITLE, documentTitle, phaseLabel, sessionStatus } from './labels'
+import {
+  APP_TITLE,
+  documentTitle,
+  phaseLabel,
+  primaryLabel,
+  sessionProgress,
+  sessionStatus,
+} from './labels'
 
 const T0 = Date.UTC(2026, 0, 5, 8, 0, 0)
 
@@ -23,6 +30,21 @@ describe('label sesi', () => {
     expect(phaseLabel('focus')).toBe('Fokus')
     expect(phaseLabel('break')).toBe('Istirahat')
     expect(phaseLabel('longBreak')).toBe('Istirahat panjang')
+  })
+
+  it('label tombol utama mengikuti fase dan mode metode', () => {
+    expect(primaryLabel(createTimer('pomodoro'))).toBe('Mulai')
+    expect(primaryLabel(start(createTimer('pomodoro'), T0))).toBe('Jeda')
+    const istirahat = skip(start(createTimer('pomodoro'), T0), T0)
+    expect(primaryLabel(istirahat)).toBe('Mulai istirahat')
+    // Hitung maju yang berjalan ditawarkan sebagai "Selesai".
+    expect(primaryLabel(start(createTimer('flowtime'), T0))).toBe('Selesai')
+  })
+
+  it('progres sesi: hitung mundur dari rencana fase, hitung maju selalu 0', () => {
+    expect(sessionProgress(createTimer('pomodoro'), 25 * MINUTE)).toBe(0)
+    expect(sessionProgress(createTimer('pomodoro'), 10 * MINUTE)).toBe(60)
+    expect(sessionProgress(start(createTimer('flowtime'), T0), 0)).toBe(0)
   })
 })
 

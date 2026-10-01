@@ -251,3 +251,90 @@ test('judul tab: nama aplikasi saat idle, sisa waktu saat jalan', async ({ page 
   await page.getByRole('button', { name: 'Jeda', exact: true }).click()
   await expect(page).toHaveTitle('Ritme')
 })
+
+test('jendela mini fallback popup: sinkron, aksi ke halaman utama, reset saat ditutup', async ({
+  page,
+}) => {
+  // Paksa jalur fallback: PiP asli tidak bisa diuji headless (checklist di README).
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'documentPictureInPicture', {
+      value: undefined,
+      configurable: true,
+    })
+  })
+  await page.goto('/')
+
+  const miniButton = page.getByRole('button', { name: 'Jendela mini' })
+  await expect(miniButton).toHaveAttribute('aria-pressed', 'false')
+  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+
+  const popupPromise = page.waitForEvent('popup')
+  await miniButton.click()
+  const popup = await popupPromise
+  await expect(miniButton).toHaveAttribute('aria-pressed', 'true')
+
+  // Gaya ikut termuat: stylesheet diklon, angka memakai font mono yang benar.
+  await expect
+    .poll(() =>
+      popup
+        .locator('.angka')
+        .evaluate((el) => getComputedStyle(el).fontFamily)
+        .catch(() => ''),
+    )
+    .toContain('JetBrains Mono')
+  await expect(popup.locator('html')).toHaveAttribute('data-phase', 'focus')
+  const mainTheme = await page.locator('html').getAttribute('data-theme')
+  expect(await popup.locator('html').getAttribute('data-theme')).toBe(mainTheme)
+
+  // Waktu yang sama (beda maksimal 1 detik karena baca terpisah).
+  const toSeconds = (text: string | null): number => {
+    const [minutes, seconds] = (text ?? '').split(':').map(Number)
+    return (minutes ?? 0) * 60 + (seconds ?? 0)
+  }
+  const mainClock = await page.locator('h1').textContent()
+  const popupClock = await popup.locator('.angka').textContent()
+  expect(Math.abs(toSeconds(popupClock) - toSeconds(mainClock))).toBeLessThanOrEqual(1)
+
+  // Tombol di popup menjeda timer halaman utama.
+  await popup.getByRole('button', { name: 'Jeda', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+
+  // Spasi dari body window mini: mulai lagi lewat listener window mini.
+  await popup.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await popup.keyboard.press('Space')
+  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+
+  // R di window mini: reset halaman utama ke 25:00.
+  await popup.keyboard.press('r')
+  await expect(page.locator('h1')).toHaveText('25:00')
+  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+
+  // Ditutup lewat X → state "terbuka" di halaman utama ter-reset.
+  await popup.close()
+  await expect(miniButton).toHaveAttribute('aria-pressed', 'false')
+
+  // Buka lagi setelah ditutup.
+  const secondPopup = page.waitForEvent('popup')
+  await miniButton.click()
+  expect(await secondPopup).toBeTruthy()
+})
+
+test('popup diblokir: pesan role=status di layar utama, bukan gagal diam-diam', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'documentPictureInPicture', {
+      value: undefined,
+      configurable: true,
+    })
+    window.open = () => null
+  })
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Jendela mini' }).click()
+  await expect(page.getByText('Popup diblokir — jendela mini tidak terbuka')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Jendela mini' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+})

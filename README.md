@@ -42,7 +42,7 @@ src/pwa/             pendaftaran service worker
 src/screens/         layar
 src/state/           store Zustand
 src/styles/          token dan lapisan dasar
-src/timer/           mesin timer murni, konfigurasi metode, Worker tick
+src/timer/           mesin timer murni, konfigurasi metode, Worker tick, jendela mini
 public/              font, ikon, manifest
 e2e/                 tes Playwright
 ```
@@ -68,6 +68,31 @@ e2e/                 tes Playwright
 | M0    | Repo, Vite, token desain, manifest, deploy               | selesai |
 | M1    | Mesin timer, Worker, semua metode, tes                   | selesai |
 | M2    | Notifikasi sesi, counter sesi, shortcut, pemulihan state | selesai |
-| M3    | Jendela mini dan fallback                                | belum   |
+| M3    | Jendela mini (Document PiP) dan fallback popup           | selesai |
 | M4    | Task list, statistik, streak, tema                       | belum   |
 | M5    | Time Boxing, PWA, polishing, Lighthouse                  | belum   |
+
+## Uji manual: jendela mini PiP (Chrome/Edge)
+
+Document Picture-in-Picture tidak bisa diuji headless. Jalur fallback
+`window.open` (popup muncul, waktu sinkron, tombol popup mengendalikan
+halaman utama, tutup popup mereset state) sudah dites Playwright. Jalur PiP
+dicek manual:
+
+1. `npm run build && npm run preview`, buka di Chrome/Edge desktop.
+2. Klik "Jendela mini" atau tekan `M` → jendela 300×180 terbuka
+   always-on-top. Halaman utama tidak reload; tidak ada timer kedua.
+3. Klik Mulai → angka di jendela mini berjalan bersamaan; tombol utama di
+   mini (Mulai/Jeda/Selesai/Mulai istirahat) mengendalikan halaman utama.
+4. Lewati ke istirahat → aksen mini ikut berubah; ganti tema
+   terang/gelap di halaman utama → mini ikut.
+5. Fokus ke mini, tekan Spasi lalu `R` → toggle dan reset bekerja dari
+   window mini.
+6. Tutup mini lewat X → tombol "Jendela mini" kembali `aria-pressed="false"`.
+7. Dengan timer jalan dan mini terbuka, reload tab utama → browser
+   menampilkan peringatan. Timer jeda atau mini tertutup → tanpa peringatan.
+8. Setelah reload: timer pulih seperti biasa, jendela mini tertutup (tidak
+   dibuka otomatis).
+9. Kalau PiP ditolak izinnya (mis. diblokir kebijakan browser), aksi yang
+   sama otomatis jatuh ke popup kecil; kalau popup juga diblokir, layar
+   utama menampilkan pesan "Popup diblokir — jendela mini tidak terbuka".
