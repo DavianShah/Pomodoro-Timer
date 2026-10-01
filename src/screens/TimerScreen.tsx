@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ThemeToggle from './ThemeToggle'
 import MiniWindow from './MiniWindow'
 import TaskPanel from './TaskPanel'
+import StatsPanel from './StatsPanel'
 import { METHOD_CONFIGS, methodById, methodDetail } from '@/timer/methods'
 import { formatClock } from '@/timer/engine'
 import { primaryLabel, sessionProgress, sessionStatus } from '@/timer/labels'
@@ -38,15 +39,39 @@ export default function TimerScreen() {
 
   const mini = useMiniWindow(state.running)
 
-  useTimerShortcuts(timer, { onMini: mini.toggle, onTasks: toggleTasks })
-
-  // Panel ditutup lewat Escape/T → tombolnya kembali menerima fokus.
+  // Panel ditutup lewat Escape → tombolnya kembali menerima fokus. Panel
+  // statistik (F10/F11) dan panel task saling menutup; fokus tidak rebutan.
   const taskButtonRef = useRef<HTMLButtonElement>(null)
   const tasksWasOpen = useRef(tasksOpen)
+  const [statsOpen, setStatsOpen] = useState(false)
+  const statsButtonRef = useRef<HTMLButtonElement>(null)
+  const statsWasOpen = useRef(statsOpen)
+
   useEffect(() => {
-    if (tasksWasOpen.current && !tasksOpen) taskButtonRef.current?.focus()
+    if (tasksWasOpen.current && !tasksOpen && !statsOpen) taskButtonRef.current?.focus()
     tasksWasOpen.current = tasksOpen
-  }, [tasksOpen])
+  }, [tasksOpen, statsOpen])
+
+  useEffect(() => {
+    if (statsWasOpen.current && !statsOpen && !tasksOpen) statsButtonRef.current?.focus()
+    statsWasOpen.current = statsOpen
+  }, [statsOpen, tasksOpen])
+
+  const toggleTasksPanel = (): void => {
+    if (!tasksOpen) setStatsOpen(false)
+    toggleTasks()
+  }
+
+  const toggleStats = (): void => {
+    if (statsOpen) {
+      setStatsOpen(false)
+      return
+    }
+    useTasks.setState({ open: false })
+    setStatsOpen(true)
+  }
+
+  useTimerShortcuts(timer, { onMini: mini.toggle, onTasks: toggleTasksPanel })
 
   const countupFocus = method.mode === 'countup' && state.phase === 'focus'
   const label = primaryLabel(state)
@@ -63,7 +88,6 @@ export default function TimerScreen() {
     <div className="flex min-h-dvh flex-col">
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-5 sm:px-10">
         <p className="label">Ritme</p>
-        <ThemeToggle />
       </header>
 
       <div
@@ -126,10 +150,20 @@ export default function TimerScreen() {
             type="button"
             aria-expanded={tasksOpen}
             aria-controls="panel-task"
-            onClick={toggleTasks}
+            onClick={toggleTasksPanel}
             className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
           >
             Task
+          </button>
+          <button
+            ref={statsButtonRef}
+            type="button"
+            aria-expanded={statsOpen}
+            aria-controls="panel-statistik"
+            onClick={toggleStats}
+            className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
+          >
+            Statistik
           </button>
         </div>
 
@@ -177,17 +211,20 @@ export default function TimerScreen() {
       </main>
 
       <footer className="border-t border-line px-6 py-4 sm:px-10">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-ink-muted">M4a: task dan pencatatan sesi jalan.</p>
-          <button
-            type="button"
-            aria-expanded={showHelp}
-            aria-controls="petunjuk-shortcut"
-            onClick={() => setShowHelp((open) => !open)}
-            className="h-8 w-8 shrink-0 rounded-md border border-line text-sm text-ink-muted transition-colors hover:border-line-strong"
-          >
-            ?
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <ThemeToggle />
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-ink-muted">M4b: statistik, streak, dan tema jalan.</p>
+            <button
+              type="button"
+              aria-expanded={showHelp}
+              aria-controls="petunjuk-shortcut"
+              onClick={() => setShowHelp((open) => !open)}
+              className="h-8 w-8 shrink-0 rounded-md border border-line text-sm text-ink-muted transition-colors hover:border-line-strong"
+            >
+              ?
+            </button>
+          </div>
         </div>
         {showHelp && (
           <ul
@@ -213,6 +250,7 @@ export default function TimerScreen() {
         />
       )}
       {tasksOpen && <TaskPanel onClose={toggleTasks} />}
+      {statsOpen && <StatsPanel onClose={toggleStats} />}
     </div>
   )
 }

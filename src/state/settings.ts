@@ -37,6 +37,8 @@ interface SettingsState {
   settings: AppSettings
   /** false = IndexedDB tidak bisa diandalkan; riwayat sesi mati, timer tetap jalan. */
   databaseAvailable: boolean
+  /** true = pengaturan tersimpan sudah terbaca; sebelum itu tema boot tidak boleh ditimpa default 'system'. */
+  settingsLoaded: boolean
   setTheme: (theme: ThemeChoice) => void
   setLastMethod: (method: string) => void
   setActiveTask: (taskId: string | null) => void
@@ -67,6 +69,7 @@ export const useSettings = create<SettingsState>()((set, get) => {
   return {
     settings: { ...DEFAULT_SETTINGS },
     databaseAvailable: true,
+    settingsLoaded: false,
     setTheme: (theme) => save({ theme }),
     setLastMethod: (lastMethod) => save({ lastMethod }),
     setActiveTask: (activeTaskId) => save({ activeTaskId }),
@@ -88,7 +91,7 @@ export const useSettings = create<SettingsState>()((set, get) => {
 
       const settings = fromDb ?? parseSettings(local)
       if (!fromDb) void persistDb(settings)
-      set({ settings })
+      set({ settings, settingsLoaded: true })
       persistLocal(settings)
 
       if (!storageWorks()) {

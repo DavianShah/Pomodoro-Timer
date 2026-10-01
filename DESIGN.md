@@ -24,19 +24,18 @@ angka tidak dianimasikan, satu hal dominan per layar.
 ## Warna
 
 <!-- tokens:begin -->
-
-| Token                | Terang    | Gelap     | Catatan                 |
-| -------------------- | --------- | --------- | ----------------------- |
-| `--paper`            | `#f2eee6` | `#14130f` | Kertas hangat           |
-| `--paper-raised`     | `#faf7f1` | `#1d1b16` | Permukaan naik          |
-| `--paper-sunken`     | `#e6e0d4` | `#0e0d0a` | Bilah status            |
-| `--ink`              | `#1b1a17` | `#f2eee6` | Tinta utama             |
-| `--ink-muted`        | `#67614f` | `#b3a996` | Teks sekunder           |
-| `--line`             | `#d3cbbb` | `#3a352b` | Garis pemisah           |
-| `--accent`           | `#a8441f` | `#d4682f` | Aksen fokus             |
-| `--accent-break`     | `#3f5c39` | `#6d8c62` | Aksen istirahat         |
+| Token | Terang | Gelap | Catatan |
+| --- | --- | --- | --- |
+| `--paper` | `#f2eee6` | `#14130f` | Kertas hangat |
+| `--paper-raised` | `#faf7f1` | `#1d1b16` | Permukaan naik |
+| `--paper-sunken` | `#e6e0d4` | `#0e0d0a` | Bilah status |
+| `--ink` | `#1b1a17` | `#f2eee6` | Tinta utama |
+| `--ink-muted` | `#67614f` | `#b3a996` | Teks sekunder |
+| `--line` | `#d3cbbb` | `#3a352b` | Garis pemisah |
+| `--accent` | `#a8441f` | `#d4682f` | Aksen fokus |
+| `--accent-focus` | `#a8441f` | `#d4682f` | Aksen grafik tanpa ikut fase |
+| `--accent-break` | `#3f5c39` | `#6d8c62` | Aksen istirahat |
 | `--accent-longbreak` | `#7c5a12` | `#c08f2c` | Aksen istirahat panjang |
-
 <!-- tokens:end -->
 
 Palet aktif = 2 netral (kertas, tinta) + 1 aksen per fase. Tiga nilai aksen adalah peran

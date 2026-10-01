@@ -14,8 +14,8 @@
   font-display: swap;
   src: url('/fonts/archivo-latin-var.woff2') format('woff2');
   unicode-range:
-    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
-    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
   font-family: 'JetBrains Mono';
@@ -24,8 +24,8 @@
   font-display: swap;
   src: url('/fonts/jetbrains-mono-latin-var.woff2') format('woff2');
   unicode-range:
-    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
-    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 :root {
@@ -42,6 +42,9 @@
   --ink-inverse: #f2eee6;
 
   --accent: #a8441f;
+  /* Aksen fokus tanpa ikut ganti fase — dipakai grafik statistik (F10).
+     Nilainya wajib sama dengan --accent di blok ini (dicek check-tokens). */
+  --accent-focus: #a8441f;
   --accent-strong: #8a3717;
   --accent-tint: #f0dcd0;
 
@@ -68,6 +71,7 @@
   --ink-inverse: #14130f;
 
   --accent: #d4682f;
+  --accent-focus: #d4682f;
   --accent-strong: #e0824f;
   --accent-tint: #3a2317;
 
@@ -116,6 +120,7 @@
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
   --color-accent-tint: var(--accent-tint);
+  --color-accent-focus: var(--accent-focus);
 }
 
 @layer base {

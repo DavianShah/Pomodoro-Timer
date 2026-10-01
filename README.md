@@ -42,6 +42,7 @@ src/lib/             utilitas murni (penyimpanan, waktu)
 src/pwa/             pendaftaran service worker
 src/screens/         layar
 src/state/           store Zustand
+src/stats/           agregasi statistik dan streak (F10, F11)
 src/styles/          token dan lapisan dasar
 src/timer/           mesin timer murni, konfigurasi metode, Worker tick, jendela mini
 public/              font, ikon, manifest
@@ -71,7 +72,7 @@ e2e/                 tes Playwright
 | M2    | Notifikasi sesi, counter sesi, shortcut, pemulihan state | selesai |
 | M3    | Jendela mini (Document PiP) dan fallback popup           | selesai |
 | M4a   | Task list (F9), lapisan data Dexie, pencatatan sesi      | selesai |
-| M4b   | Statistik, streak, tema                                 | belum   |
+| M4b   | Statistik (F10), streak (F11), tema (F12)                | selesai |
 | M5    | Time Boxing, PWA, polishing, Lighthouse                  | belum   |
 
 ## Uji manual: jendela mini PiP (Chrome/Edge)

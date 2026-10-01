@@ -48,6 +48,18 @@ function varsIn(block) {
 const light = varsIn(blockAfter(':root'))
 const dark = varsIn(blockAfter("[data-theme='dark']"))
 
+// --accent-focus sengaja mengulang literal --accent (alias var() tidak bisa
+// mengunci nilai saat atribut data-phase menimpa --accent). Duplikasi ini dijaga:
+// kalau satu berubah tanpa yang lain, lempar error.
+for (const [theme, vars] of [
+  ['terang', light],
+  ['gelap', dark],
+]) {
+  if (vars['accent-focus'] !== vars.accent) {
+    throw new Error(`--accent-focus tidak kembar dengan --accent di tema ${theme}`)
+  }
+}
+
 const need = (vars, name, theme) => {
   const value = vars[name]
   if (!value) throw new Error(`Token --${name} tidak ada di tema ${theme}`)
@@ -79,6 +91,7 @@ const rows = [
   ['ink-muted', 'inkMuted', 'Teks sekunder'],
   ['line', 'line', 'Garis pemisah'],
   ['accent', 'accentFocus', 'Aksen fokus'],
+  ['accent-focus', 'accentFocus', 'Aksen grafik tanpa ikut fase'],
   ['accent-break', 'accentBreak', 'Aksen istirahat'],
   ['accent-longbreak', 'accentLongbreak', 'Aksen istirahat panjang'],
 ]
@@ -87,7 +100,8 @@ const table = [
   '| Token | Terang | Gelap | Catatan |',
   '| --- | --- | --- | --- |',
   ...rows.map(
-    ([name, key, note]) => `| \`--${name}\` | \`${tokens.terang[key]}\` | \`${tokens.gelap[key]}\` | ${note} |`,
+    ([name, key, note]) =>
+      `| \`--${name}\` | \`${tokens.terang[key]}\` | \`${tokens.gelap[key]}\` | ${note} |`,
   ),
 ].join('\n')
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { SessionRow } from '@/db/db'
 import { db } from '@/db/db'
 import { addTask } from './tasks'
-import { putFocusSession } from './sessions'
+import { loadSessionsThrough, putFocusSession } from './sessions'
 
 function makeSession(overrides: Partial<SessionRow> = {}): SessionRow {
   return {
@@ -64,5 +64,18 @@ describe('putFocusSession', () => {
     expect(await db.sessions.count()).toBe(1)
     expect((await db.tasks.get(other.id))?.sessionCount).toBe(0)
     expect(await db.tasks.get(other.id)).toBeDefined()
+  })
+})
+
+describe('loadSessionsThrough', () => {
+  it('mengambil sesi dari indeks date sampai kunci hari itu saja', async () => {
+    await putFocusSession(makeSession({ id: 'lama', date: '2026-01-01' }))
+    await putFocusSession(makeSession({ id: 'batas', date: '2026-01-05' }))
+    await putFocusSession(makeSession({ id: 'besok', date: '2026-01-06' }))
+
+    const rows = await loadSessionsThrough('2026-01-05')
+    const ids = rows.map((row) => row.id).sort()
+
+    expect(ids).toEqual(['batas', 'lama'])
   })
 })

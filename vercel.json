@@ -12,15 +12,11 @@
   "headers": [
     {
       "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
       "source": "/fonts/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
       "source": "/sw.js",
@@ -49,7 +45,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!assets/|fonts/|icon|manifest\\.webmanifest|sw\\.js|registerSW\\.js).*)",
+      "source": "/((?!assets/|fonts/|icon|manifest\\.webmanifest|sw\\.js|registerSW\\.js|theme-boot\\.js).*)",
       "destination": "/index.html"
     }
   ]

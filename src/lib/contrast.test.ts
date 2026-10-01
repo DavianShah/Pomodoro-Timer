@@ -18,22 +18,21 @@ describe('hexToRgb', () => {
 describe('kontras token tema', () => {
   for (const [themeName, theme] of Object.entries(TOKENS)) {
     describe(`tema ${themeName}`, () => {
-      const pairs: ReadonlyArray<readonly [label: string, foreground: string, background: string]> = [
-        ['teks utama di atas latar', theme.ink, theme.paper],
-        ['teks utama di atas permukaan naik', theme.ink, theme.paperRaised],
-        ['teks sekunder di atas latar', theme.inkMuted, theme.paper],
-        ['teks sekunder di atas permukaan naik', theme.inkMuted, theme.paperRaised],
-        ['teks tombol utama di atas aksen fokus', theme.inkInverse, theme.accentFocus],
-        ['aksen fokus di atas latar', theme.accentFocus, theme.paper],
-        ['aksen istirahat di atas latar', theme.accentBreak, theme.paper],
-        ['aksen istirahat panjang di atas latar', theme.accentLongbreak, theme.paper],
-        ['teks tombol di atas aksen istirahat', theme.inkInverse, theme.accentBreak],
+      const pairs: ReadonlyArray<readonly [label: string, foreground: string, background: string]> =
         [
-          'teks tombol di atas aksen istirahat panjang',
-          theme.inkInverse,
-          theme.accentLongbreak,
-        ],
-      ]
+          ['teks utama di atas latar', theme.ink, theme.paper],
+          ['teks utama di atas permukaan naik', theme.ink, theme.paperRaised],
+          ['teks sekunder di atas latar', theme.inkMuted, theme.paper],
+          ['teks sekunder di atas permukaan naik', theme.inkMuted, theme.paperRaised],
+          ['teks tombol utama di atas aksen fokus', theme.inkInverse, theme.accentFocus],
+          ['aksen fokus di atas latar', theme.accentFocus, theme.paper],
+          ['batang grafik statistik di atas permukaan naik', theme.accentFocus, theme.paperRaised],
+          ['batang grafik statistik di atas bilah grafik', theme.accentFocus, theme.paperSunken],
+          ['aksen istirahat di atas latar', theme.accentBreak, theme.paper],
+          ['aksen istirahat panjang di atas latar', theme.accentLongbreak, theme.paper],
+          ['teks tombol di atas aksen istirahat', theme.inkInverse, theme.accentBreak],
+          ['teks tombol di atas aksen istirahat panjang', theme.inkInverse, theme.accentLongbreak],
+        ]
 
       for (const [label, foreground, background] of pairs) {
         it(`${label} memenuhi AA`, () => {

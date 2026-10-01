@@ -21,3 +21,9 @@ export async function putFocusSession(session: SessionRow): Promise<void> {
     await db.tasks.update(session.taskId, { sessionCount: count })
   })
 }
+
+/** Baca sesi lewat indeks `date` sampai (termasuk) kunci hari — rentang ke atas,
+ * dipakai panel statistik (F10) tanpa memindai seluruh riwayat. */
+export async function loadSessionsThrough(throughDate: string): Promise<SessionRow[]> {
+  return db.sessions.where('date').belowOrEqual(throughDate).toArray()
+}
