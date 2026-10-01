@@ -3,14 +3,23 @@ import ThemeToggle from './ThemeToggle'
 import MiniWindow from './MiniWindow'
 import TaskPanel from './TaskPanel'
 import StatsPanel from './StatsPanel'
-import { METHOD_CONFIGS, methodById, methodDetail } from '@/timer/methods'
+import JadwalPanel from './JadwalPanel'
+import { METHOD_CONFIGS, MINUTE, methodById, methodDetail } from '@/timer/methods'
+import { blockEndMs, blockEndingAt, formatBlockRange } from '@/timer/blocks'
 import { formatClock } from '@/timer/engine'
-import { primaryLabel, sessionProgress, sessionStatus } from '@/timer/labels'
+import {
+  boxingStatus,
+  isBlockPrompt,
+  primaryLabel,
+  sessionProgress,
+  sessionStatus,
+} from '@/timer/labels'
 import { useTimer } from '@/timer/useTimer'
 import { useMiniWindow } from '@/timer/useMiniWindow'
 import { useTimerShortcuts } from '@/timer/useShortcuts'
 import { useTasks } from '@/state/tasks'
 import { useSettings } from '@/state/settings'
+import { useBlocks } from '@/state/blocks'
 
 export default function TimerScreen() {
   const setLastMethod = useSettings((state) => state.setLastMethod)
@@ -18,6 +27,10 @@ export default function TimerScreen() {
   const tasksOpen = useTasks((state) => state.open)
   const toggleTasks = useTasks((state) => state.toggleOpen)
   const tasks = useTasks((state) => state.tasks)
+  const blocksOpen = useBlocks((state) => state.open)
+  const toggleBlocks = useBlocks((state) => state.toggleOpen)
+  const loadBlocks = useBlocks((state) => state.load)
+  const blocks = useBlocks((state) => state.blocks)
   const activeTaskId = useSettings((state) => state.settings.activeTaskId)
   const activeTaskTitle = tasks.find((task) => task.id === activeTaskId)?.title
   const timer = useTimer()
@@ -30,10 +43,11 @@ export default function TimerScreen() {
     document.documentElement.dataset.phase = state.phase
   }, [state.phase])
 
-  // Daftar task sekali per layar; panel membaca store yang sama.
+  // Task & blok hari ini sekali per layar; panel membaca store yang sama.
   useEffect(() => {
     void loadTasks()
-  }, [loadTasks])
+    void loadBlocks()
+  }, [loadTasks, loadBlocks])
 
   const [showHelp, setShowHelp] = useState(false)
 
@@ -46,19 +60,32 @@ export default function TimerScreen() {
   const [statsOpen, setStatsOpen] = useState(false)
   const statsButtonRef = useRef<HTMLButtonElement>(null)
   const statsWasOpen = useRef(statsOpen)
+  const jadwalButtonRef = useRef<HTMLButtonElement>(null)
+  const jadwalWasOpen = useRef(blocksOpen)
 
   useEffect(() => {
-    if (tasksWasOpen.current && !tasksOpen && !statsOpen) taskButtonRef.current?.focus()
+    if (tasksWasOpen.current && !tasksOpen && !statsOpen && !blocksOpen)
+      taskButtonRef.current?.focus()
     tasksWasOpen.current = tasksOpen
-  }, [tasksOpen, statsOpen])
+  }, [tasksOpen, statsOpen, blocksOpen])
 
   useEffect(() => {
-    if (statsWasOpen.current && !statsOpen && !tasksOpen) statsButtonRef.current?.focus()
+    if (statsWasOpen.current && !statsOpen && !tasksOpen && !blocksOpen)
+      statsButtonRef.current?.focus()
     statsWasOpen.current = statsOpen
-  }, [statsOpen, tasksOpen])
+  }, [statsOpen, tasksOpen, blocksOpen])
+
+  useEffect(() => {
+    if (jadwalWasOpen.current && !blocksOpen && !tasksOpen && !statsOpen)
+      jadwalButtonRef.current?.focus()
+    jadwalWasOpen.current = blocksOpen
+  }, [blocksOpen, tasksOpen, statsOpen])
 
   const toggleTasksPanel = (): void => {
-    if (!tasksOpen) setStatsOpen(false)
+    if (!tasksOpen) {
+      setStatsOpen(false)
+      useBlocks.setState({ open: false })
+    }
     toggleTasks()
   }
 
@@ -68,11 +95,21 @@ export default function TimerScreen() {
       return
     }
     useTasks.setState({ open: false })
+    useBlocks.setState({ open: false })
     setStatsOpen(true)
+  }
+
+  const toggleJadwal = (): void => {
+    if (!blocksOpen) {
+      useTasks.setState({ open: false })
+      setStatsOpen(false)
+    }
+    toggleBlocks()
   }
 
   useTimerShortcuts(timer, { onMini: mini.toggle, onTasks: toggleTasksPanel })
 
+  const [promptBusy, setPromptBusy] = useState(false)
   const countupFocus = method.mode === 'countup' && state.phase === 'focus'
   const label = primaryLabel(state)
   const primary = {
@@ -80,9 +117,48 @@ export default function TimerScreen() {
     action: label === 'Selesai' ? timer.skip : label === 'Jeda' ? timer.pause : timer.start,
   }
 
-  const progress = sessionProgress(state, timer.display)
+  const now = timer.now
+  // Prompt blok berakhir (Time Boxing): pilihan inline — panel mungkin tertutup.
+  const isPrompt = isBlockPrompt(state, now)
+  const trackedBlock =
+    method.mode === 'boxing' && state.endTime !== null ? blockEndingAt(blocks, state.endTime) : null
 
-  const status = sessionStatus(method, state.cycleIndex, state.phase)
+  const lanjut15 = (): void => {
+    if (trackedBlock === null || promptBusy) return
+    setPromptBusy(true)
+    void useBlocks
+      .getState()
+      .extend(trackedBlock.id, 15)
+      .then((extended) => {
+        if (extended !== null) timer.resumeAt(blockEndMs(extended))
+      })
+      .finally(() => setPromptBusy(false))
+  }
+
+  const geserBlok = (): void => {
+    if (trackedBlock === null || promptBusy) return
+    const overrunMin = Math.max(0, Math.ceil((now - blockEndMs(trackedBlock)) / MINUTE))
+    setPromptBusy(true)
+    void (async () => {
+      try {
+        if (overrunMin > 0) await useBlocks.getState().shift(trackedBlock.id, overrunMin)
+        timer.setBoxingEnd(null)
+      } finally {
+        setPromptBusy(false)
+      }
+    })()
+  }
+
+  const progress = sessionProgress(
+    state,
+    timer.display,
+    trackedBlock !== null ? (trackedBlock.endMin - trackedBlock.startMin) * MINUTE : undefined,
+  )
+
+  const status =
+    method.mode === 'boxing'
+      ? boxingStatus(state, blocks, now)
+      : sessionStatus(method, state.cycleIndex, state.phase)
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -121,13 +197,15 @@ export default function TimerScreen() {
           tabIndex={-1}
           className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
         >
-          <button
-            type="button"
-            onClick={primary.action}
-            className="rounded-md bg-accent px-7 py-3 text-base font-semibold text-ink-inverse transition-colors hover:bg-accent-strong"
-          >
-            {primary.label}
-          </button>
+          {!isPrompt && (
+            <button
+              type="button"
+              onClick={primary.action}
+              className="rounded-md bg-accent px-7 py-3 text-base font-semibold text-ink-inverse transition-colors hover:bg-accent-strong"
+            >
+              {primary.label}
+            </button>
+          )}
           {countupFocus && state.running && (
             <button
               type="button"
@@ -165,7 +243,58 @@ export default function TimerScreen() {
           >
             Statistik
           </button>
+          <button
+            ref={jadwalButtonRef}
+            type="button"
+            aria-expanded={blocksOpen}
+            aria-controls="panel-jadwal"
+            onClick={toggleJadwal}
+            className="rounded-md border border-line-strong px-5 py-3 text-sm text-ink-muted transition-colors hover:border-ink-muted"
+          >
+            Jadwal
+          </button>
         </div>
+
+        {isPrompt && (
+          <div
+            role="status"
+            className="mt-4 flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm"
+          >
+            <span className="text-ink-muted">
+              {trackedBlock !== null
+                ? `Blok ${formatBlockRange(trackedBlock)} berakhir.`
+                : 'Blok berakhir.'}
+            </span>
+            {trackedBlock !== null && (
+              <>
+                <button
+                  type="button"
+                  onClick={lanjut15}
+                  disabled={promptBusy}
+                  className="rounded-md border border-line-strong px-4 py-2 text-sm text-ink transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Lanjut 15 menit
+                </button>
+                <button
+                  type="button"
+                  onClick={geserBlok}
+                  disabled={promptBusy}
+                  className="rounded-md border border-line-strong px-4 py-2 text-sm text-ink transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Geser blok berikutnya
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => timer.setBoxingEnd(null)}
+              disabled={promptBusy}
+              className="rounded-md border border-line-strong px-4 py-2 text-sm text-ink transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Selesai
+            </button>
+          </div>
+        )}
 
         {timer.soundBlocked && (
           <p role="status" className="mt-4 w-full text-center text-xs text-ink-muted">
@@ -183,7 +312,7 @@ export default function TimerScreen() {
           <ul className="flex flex-wrap justify-center gap-2">
             {METHOD_CONFIGS.map((item, index) => {
               const active = item.id === method.id
-              const selectable = timer.methodEditable && item.mode !== 'disabled'
+              const selectable = timer.methodEditable
               return (
                 <li key={item.id} style={{ flexBasis: '9rem' }} className="min-w-0">
                   <button
@@ -214,7 +343,7 @@ export default function TimerScreen() {
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
           <ThemeToggle />
           <div className="flex items-center gap-4">
-            <p className="text-sm text-ink-muted">M4b: statistik, streak, dan tema jalan.</p>
+            <p className="text-sm text-ink-muted">M5a: time boxing jalan.</p>
             <a
               href="/LICENSES.md"
               target="_blank"
@@ -259,6 +388,7 @@ export default function TimerScreen() {
       )}
       {tasksOpen && <TaskPanel onClose={toggleTasks} />}
       {statsOpen && <StatsPanel onClose={toggleStats} />}
+      {blocksOpen && <JadwalPanel onClose={toggleJadwal} />}
     </div>
   )
 }

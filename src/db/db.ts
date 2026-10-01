@@ -26,13 +26,15 @@ export interface TaskRow {
   sessionCount: number
 }
 
+export type BlockStatus = 'planned' | 'running' | 'done' | 'overrun'
+
 export interface BlockRow {
   id: string
   date: string
   startMin: number
   endMin: number
   taskId?: string
-  status: 'planned' | 'done' | 'skipped' | 'overrun'
+  status: BlockStatus
 }
 
 export interface PresetRow {
@@ -68,4 +70,10 @@ db.version(1).stores({
 // v2: indeks `date` pada sessions untuk pengelompokan harian (F10 nanti).
 db.version(2).stores({
   sessions: 'id, startedAt, method, taskId, kind, date',
+})
+
+// v3: tabel blocks dipakai penuh oleh Time Boxing (F16) — status blok
+// kini alur hidup planned → running → done/overrun; indeks tidak berubah.
+db.version(3).stores({
+  blocks: 'id, date, startMin, [date+startMin]',
 })

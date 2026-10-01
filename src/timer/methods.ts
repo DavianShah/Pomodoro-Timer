@@ -33,7 +33,7 @@ export type MethodConfig =
       focusBreak: readonly BreakStep[]
       cycle: number
     }
-  | { id: string; name: string; mode: 'disabled' }
+  | { id: string; name: string; mode: 'boxing'; cycle: number }
 
 export const METHOD_CONFIGS = [
   {
@@ -76,13 +76,13 @@ export const METHOD_CONFIGS = [
     ],
     cycle: 1,
   },
-  { id: 'timeboxing', name: 'Time boxing', mode: 'disabled' },
+  { id: 'timeboxing', name: 'Time boxing', mode: 'boxing', cycle: 1 },
 ] as const satisfies readonly MethodConfig[]
 
 const FALLBACK: RunnableMethod = METHOD_CONFIGS[0]
 
-/** Metode yang bisa dijalankan mesin: tanpa varian disabled. */
-export type RunnableMethod = Exclude<MethodConfig, { mode: 'disabled' }>
+/** Metode yang bisa dijalankan mesin: seluruh entri konfigurasi runnable. */
+export type RunnableMethod = MethodConfig
 
 /**
  * Ambil konfigurasi metode. Id tak dikenal atau metode yang belum tersedia
@@ -90,13 +90,13 @@ export type RunnableMethod = Exclude<MethodConfig, { mode: 'disabled' }>
  */
 export function methodById(id: string): RunnableMethod {
   const found = METHOD_CONFIGS.find((method) => method.id === id)
-  if (!found || found.mode === 'disabled') return FALLBACK
+  if (!found) return FALLBACK
   return found
 }
 
 /** Baris pendek di pemilih metode, dihitung dari konfigurasi supaya tidak melenceng. */
 export function methodDetail(config: MethodConfig): string {
-  if (config.mode === 'disabled') return 'Belum bisa'
+  if (config.mode === 'boxing') return 'Sesuai blok'
   if (config.mode === 'countup') return 'Hitung maju'
   return `${config.focusMs / MINUTE} menit`
 }

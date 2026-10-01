@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react'
-import { METHOD_CONFIGS } from './methods'
+import { METHOD_CONFIGS, methodById } from './methods'
 import { useSettings } from '@/state/settings'
 import type { TimerApi } from './useTimer'
 
@@ -91,11 +91,13 @@ export interface TimerShortcutHooks {
 export function useTimerShortcuts(timer: TimerApi, hooks: TimerShortcutHooks = {}): void {
   const setLastMethod = useSettings((state) => state.setLastMethod)
   const { onMini = null, onTasks = null, host } = hooks
+  // Time Boxing: jeda tak berarti — Spasi saat berjalan menutup blok (Selesai).
+  const boxing = methodById(timer.state.method).mode === 'boxing'
 
   const selectMethod = useCallback(
     (index: number) => {
       const config = METHOD_CONFIGS[index]
-      if (!config || config.mode === 'disabled') return
+      if (!config) return
       if (!timer.methodEditable) return
       setLastMethod(config.id)
     },
@@ -107,7 +109,7 @@ export function useTimerShortcuts(timer: TimerApi, hooks: TimerShortcutHooks = {
       running: timer.state.running,
       methodEditable: timer.methodEditable,
       start: timer.start,
-      pause: timer.pause,
+      pause: boxing ? timer.skip : timer.pause,
       skip: timer.skip,
       reset: timer.reset,
       onMini,

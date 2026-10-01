@@ -1,6 +1,6 @@
 import type { SessionRow } from '@/db/db'
 import { describe, expect, it } from 'vitest'
-import { createTimer, pause, skip, start } from './engine'
+import { createTimer, pause, setBoxingEnd, skip, start } from './engine'
 import { MINUTE } from './methods'
 import { buildFocusSession, focusSessionId, localDateKey } from './sessionRecord'
 
@@ -121,5 +121,66 @@ describe('buildFocusSession — fase lain dan task', () => {
     )
     expect(without.taskId).toBeUndefined()
     expect('taskId' in without).toBe(false)
+  })
+})
+
+describe('buildFocusSession — time boxing', () => {
+  const blockEnd = T0 + 45 * MINUTE
+  const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), T0)
+
+  it('prompt tanpa sesi berjalan (startedAt null) bukan ujung sesi → null', () => {
+    expect(
+      buildFocusSession({
+        prev: { ...running, running: false, startedAt: null },
+        action: 'skip',
+        now: blockEnd,
+        taskId: null,
+      }),
+    ).toBeNull()
+  })
+
+  it('auto: endedAt = akhir blok (bukan now), completed, plannedMs dari blok', () => {
+    const session = must(
+      buildFocusSession({
+        prev: running,
+        action: 'auto',
+        now: blockEnd + 120_000,
+        taskId: null,
+        boxing: { plannedMs: 45 * MINUTE },
+      }),
+    )
+
+    expect(session.completed).toBe(true)
+    expect(session.endedAt).toBe(blockEnd)
+    expect(session.actualMs).toBe(45 * MINUTE)
+    expect(session.plannedMs).toBe(45 * MINUTE)
+    expect(session.startedAt).toBe(T0)
+    expect(session.id).toBe(focusSessionId('timeboxing', T0))
+  })
+
+  it('tanpa data blok: plannedMs = durasi aktual; skip (Selesai) = selesai, reset = batal', () => {
+    const selesai = must(
+      buildFocusSession({
+        prev: running,
+        action: 'skip',
+        now: T0 + 10 * MINUTE,
+        taskId: null,
+      }),
+    )
+
+    expect(selesai.completed).toBe(true)
+    expect(selesai.endedAt).toBe(T0 + 10 * MINUTE)
+    expect(selesai.plannedMs).toBe(10 * MINUTE)
+
+    const batal = must(
+      buildFocusSession({
+        prev: running,
+        action: 'reset',
+        now: T0 + 12 * MINUTE,
+        taskId: null,
+      }),
+    )
+    expect(batal.completed).toBe(false)
+    expect(batal.plannedMs).toBe(12 * MINUTE)
   })
 })

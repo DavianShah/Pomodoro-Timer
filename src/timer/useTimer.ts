@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSettings } from '@/state/settings'
+import { useBlocks } from '@/state/blocks'
 import { read } from '@/lib/storage'
 import {
   createTimer,
   displayMs,
+  endsFocusSession,
   pause as pausePhase,
   reset as resetTimer,
+  setBoxingEnd,
   skip as skipPhase,
   start as startPhase,
   tick,
   type TimerState,
 } from './engine'
 import { isTimerShape, restoreTimer, saveTimer } from './persist'
+import { methodById } from './methods'
 import { getAlarmState, playAlarm, subscribeAlarm, unlockAlarm } from './alarm'
 import { notifyPhaseDone, requestNotifyPermission } from './notify'
 import { documentTitle, phaseLabel } from './labels'
+import { blockEndMs, currentBlock } from '@/timer/blocks'
 import { recordFocusSession } from '@/data/recordFocusSession'
-import type { FocusEndAction } from './sessionRecord'
+import { localDateKey, type FocusEndAction } from './sessionRecord'
 import type { TimerWorkerEvent } from './protocol'
 
 /**
@@ -30,10 +35,12 @@ function recordFocusEnd(
   action: FocusEndAction,
   at: number,
 ): void {
-  if (prev.phase !== 'focus') return
-  if (action === 'reset' || (next !== prev && next.phase !== 'focus')) {
-    void recordFocusSession(prev, action, at)
+  if (action === 'reset') {
+    if (prev.phase === 'focus') void recordFocusSession(prev, 'reset', at)
+    return
   }
+  // Boxing menutup sesi tanpa ganti fase — endsFocusSession yang mendeteksi.
+  if (endsFocusSession(prev, next)) void recordFocusSession(prev, action, at)
 }
 
 export interface TimerApi {
@@ -50,6 +57,10 @@ export interface TimerApi {
   pause: () => void
   skip: () => void
   reset: () => void
+  /** Time Boxing: setel/bersihkan akhir blok saat tidak berjalan (prompt). */
+  setBoxingEnd: (endMs: number | null) => void
+  /** Time Boxing: lanjut dari blok yang baru diperpanjang (auto-resume). */
+  resumeAt: (endMs: number) => void
 }
 
 /**
@@ -66,12 +77,23 @@ export function useTimer(): TimerApi {
     const restored = restoreTimer(raw, at)
     // Fokus yang berakhir selama tab tertutup: catat sekali. Id diturunkan
     // dari state mentah yang sama → pemulihan ganda tidak menggandakan sesi.
-    if (isTimerShape(raw) && raw.phase === 'focus' && raw.running && restored.phase !== 'focus') {
+    const boxingClosed =
+      isTimerShape(raw) &&
+      raw.running &&
+      methodById(raw.method).mode === 'boxing' &&
+      !restored.running
+    if (
+      isTimerShape(raw) &&
+      raw.phase === 'focus' &&
+      raw.running &&
+      (restored.phase !== 'focus' || boxingClosed)
+    ) {
       void recordFocusSession(raw, 'auto', at)
     }
     return restored
   })
   const [now, setNow] = useState(() => Date.now())
+  const blocks = useBlocks((state) => state.blocks)
   const [completionMarker, setCompletionMarker] = useState<string | null>(null)
   const [alarmState, setAlarmState] = useState(getAlarmState)
 
@@ -98,6 +120,33 @@ export function useTimer(): TimerApi {
   useEffect(() => {
     saveTimer(state)
   }, [state])
+
+  // Time Boxing: endTime = akhir blok hari ini — sinkron dari store selama
+  // idle, tidak saat sesi berjalan (endTime jangkar) atau prompt (penanda).
+  // Pola "adjust state during render" seperti ganti metode di atas.
+  if (
+    methodById(state.method).mode === 'boxing' &&
+    !state.running &&
+    !(state.endTime !== null && state.endTime <= now) &&
+    useBlocks.getState().date === localDateKey(now)
+  ) {
+    const block = currentBlock(blocks, now)
+    const endMs = block !== null ? blockEndMs(block) : null
+    if (endMs !== state.endTime) setState(setBoxingEnd(state, endMs))
+  }
+
+  // Lewat tengah malam: blok hari ini perlu dimuat ulang (jalur eksternal).
+  useEffect(() => {
+    if (methodById(state.method).mode !== 'boxing') return
+    if (useBlocks.getState().date !== localDateKey(now)) void useBlocks.getState().load()
+  }, [state.method, now])
+
+  // Time Boxing idle: jam berdetak tiap detik (hitung mundur ke akhir blok).
+  useEffect(() => {
+    if (methodById(state.method).mode !== 'boxing' || state.running) return undefined
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [state.method, state.running])
 
   // Judul tab (PRD F5).
   useEffect(() => {
@@ -129,15 +178,19 @@ export function useTimer(): TimerApi {
       stateRef.current = next
       setNow(at)
       setState(next)
-      if (next !== prev && next.phase !== prev.phase) {
-        playAlarm()
-        notifyPhaseDone(phaseLabel(prev.phase))
-        if (document.visibilityState === 'hidden') {
-          setCompletionMarker(`${phaseLabel(next.phase)} siap`)
-        }
-        if (prev.phase === 'focus') {
-          // Pencatatan dari transisi, bukan tick: satu sesi per akhir fokus.
-          void recordFocusSession(prev, 'auto', at)
+      if (next !== prev) {
+        const phaseChanged = next.phase !== prev.phase
+        const boxingEnd = methodById(prev.method).mode === 'boxing' && prev.running && !next.running
+        if (phaseChanged || boxingEnd) {
+          playAlarm()
+          notifyPhaseDone(boxingEnd ? 'Blok' : phaseLabel(prev.phase))
+          if (document.visibilityState === 'hidden') {
+            setCompletionMarker(boxingEnd ? 'Blok selesai' : `${phaseLabel(next.phase)} siap`)
+          }
+          if (endsFocusSession(prev, next)) {
+            // Pencatatan dari transisi, bukan tick: satu sesi per akhir fokus.
+            void recordFocusSession(prev, 'auto', at)
+          }
         }
       }
     }
@@ -165,11 +218,31 @@ export function useTimer(): TimerApi {
     setCompletionMarker(null)
     unlockAlarm()
     requestNotifyPermission()
+    // Time Boxing: blok yang dicover berstatus running.
+    if (methodById(stateRef.current.method).mode === 'boxing' && stateRef.current.running) {
+      void useBlocks.getState().markRunning(Date.now())
+    }
   }, [apply])
 
   const pause = useCallback(() => apply(pausePhase), [apply])
   const skip = useCallback(() => apply(skipPhase, 'skip'), [apply])
   const reset = useCallback(() => apply((current) => resetTimer(current), 'reset'), [apply])
+
+  const setBoxingEndAction = useCallback(
+    (endMs: number | null) => apply((current) => setBoxingEnd(current, endMs)),
+    [apply],
+  )
+
+  // Lanjut dari blok yang baru diperpanjang: setel akhir baru lalu jalan.
+  const resumeAt = useCallback(
+    (endMs: number) => {
+      apply((current, at) => startPhase(setBoxingEnd(current, endMs), at))
+      setCompletionMarker(null)
+      unlockAlarm()
+      requestNotifyPermission()
+    },
+    [apply],
+  )
 
   return {
     state,
@@ -181,5 +254,7 @@ export function useTimer(): TimerApi {
     pause,
     skip,
     reset,
+    setBoxingEnd: setBoxingEndAction,
+    resumeAt,
   }
 }

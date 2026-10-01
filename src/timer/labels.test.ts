@@ -1,9 +1,12 @@
+import type { BlockRow } from '@/db/db'
 import { describe, expect, it } from 'vitest'
-import { createTimer, skip, start } from './engine'
+import { createTimer, setBoxingEnd, skip, start } from './engine'
 import { MINUTE, methodById } from './methods'
 import {
   APP_TITLE,
+  boxingStatus,
   documentTitle,
+  isBlockPrompt,
   phaseLabel,
   primaryLabel,
   sessionProgress,
@@ -67,5 +70,38 @@ describe('judul tab', () => {
     expect(documentTitle(createTimer('pomodoro'), 5 * MINUTE, 'Istirahat siap', false)).toBe(
       APP_TITLE,
     )
+  })
+})
+
+describe('label Time Boxing', () => {
+  const now = new Date(2026, 0, 5, 12, 30).getTime()
+  const block: BlockRow = {
+    id: 'b1',
+    date: '2026-01-05',
+    startMin: 11 * 60 + 45,
+    endMin: 12 * 60 + 45,
+    status: 'running',
+  }
+  const idle = createTimer('timeboxing')
+  const running = start(setBoxingEnd(idle, now + 15 * MINUTE), now - 10 * MINUTE)
+
+  it('status: penanda blok selesai, rentang blok aktif, blok berikutnya', () => {
+    const ended = { ...running, running: false, endTime: now - 1_000 }
+    expect(boxingStatus(ended, [block], now)).toBe('Blok selesai')
+    expect(boxingStatus(running, [block], now)).toBe('Fokus · 11:45–12:45')
+    expect(boxingStatus(running, [], now)).toBe('Tidak ada blok berikutnya')
+  })
+
+  it('pilihan blok: hanya idle dengan endTime sudah lewat', () => {
+    const ended = { ...running, running: false, endTime: now - 1_000 }
+    expect(isBlockPrompt(ended, now)).toBe(true)
+    expect(isBlockPrompt(running, now)).toBe(false)
+    expect(isBlockPrompt({ ...ended, endTime: now + 60_000 }, now)).toBe(false)
+  })
+
+  it('progres pakai panjang blok, bukan rencana fase', () => {
+    expect(sessionProgress(running, 10 * MINUTE, 30 * MINUTE)).toBe(67)
+    expect(sessionProgress(running, 30 * MINUTE, 30 * MINUTE)).toBe(0)
+    expect(sessionProgress(idle, 0)).toBe(0)
   })
 })

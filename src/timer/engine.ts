@@ -52,6 +52,12 @@ export function createTimer(methodId: string): TimerState {
 export function start(state: TimerState, now: number): TimerState {
   if (state.running) return state
   const method = methodById(state.method)
+  // Time Boxing: mulai hanya saat masih di dalam blok (endTime = akhir blok).
+  if (method.mode === 'boxing') {
+    if (state.endTime === null || state.endTime <= now) return state
+    return { ...state, running: true, startedAt: now, remainingMs: null }
+  }
+
   if (method.mode === 'countup' && state.phase === 'focus') {
     return { ...state, running: true, startedAt: now }
   }
@@ -61,6 +67,9 @@ export function start(state: TimerState, now: number): TimerState {
 
 export function pause(state: TimerState, now: number): TimerState {
   if (!state.running) return state
+  // Time Boxing: blok berjalan mengikuti jam dinding — jeda tak berarti.
+  if (methodById(state.method).mode === 'boxing') return state
+
   if (state.endTime !== null) {
     // Countdown: sisa dihitung ulang dari timestamp, bukan dari tick.
     return {
@@ -82,6 +91,11 @@ export function pause(state: TimerState, now: number): TimerState {
  */
 function complete(state: TimerState, now: number): TimerState {
   const method = methodById(state.method)
+  if (method.mode === 'boxing') {
+    // Akhir blok: berhenti tanpa ganti fase; endTime dipertahankan sebagai
+    // penanda "blok selesai" sampai user memilih keluar dari prompt.
+    return { ...state, running: false, startedAt: null, elapsedMs: 0, remainingMs: null }
+  }
 
   if (state.phase === 'focus') {
     const focusMs =
@@ -129,7 +143,16 @@ export function tick(state: TimerState, now: number): TimerState {
   return state
 }
 
-/** Lewati fase sekarang. Berlaku untuk kedua mode. */
+/**
+ * Setel akhir blok Time Boxing (epoch ms). Hanya saat tidak berjalan — selama
+ * sesi berjalan endTime adalah jangkar sesi. null = tidak ada blok aktif.
+ */
+export function setBoxingEnd(state: TimerState, endMs: number | null): TimerState {
+  if (state.running || state.endTime === endMs) return state
+  return { ...state, endTime: endMs, remainingMs: endMs === null ? 0 : null }
+}
+
+/** Lewati fase sekarang; untuk Time Boxing menutup blok yang berjalan. */
 export function skip(state: TimerState, now: number): TimerState {
   return complete(state, now)
 }
@@ -137,6 +160,13 @@ export function skip(state: TimerState, now: number): TimerState {
 /** Reset ke awal metode. */
 export function reset(state: TimerState): TimerState {
   return createTimer(state.method)
+}
+
+/** True bila transisi menutup sesi fokus: ganti fase, atau blok selesai (boxing). */
+export function endsFocusSession(prev: TimerState, next: TimerState): boolean {
+  if (prev.phase !== 'focus') return false
+  if (prev.phase !== next.phase) return true
+  return methodById(prev.method).mode === 'boxing' && prev.running && !next.running
 }
 
 /** Sisa waktu (countdown) untuk ditampilkan; 0 bila fase sudah berakhir. */

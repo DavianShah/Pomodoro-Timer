@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createTimer, elapsed, pause, start } from './engine'
+import { createTimer, elapsed, pause, setBoxingEnd, start } from './engine'
 import { MINUTE } from './methods'
 import { loadTimer, restoreTimer, saveTimer } from './persist'
 
@@ -108,5 +108,27 @@ describe('simpan/pulih timer', () => {
     expect(restored.running).toBe(false)
     expect(restored.endTime).toBeNull()
     expect(restored.remainingMs).toBe(25 * MINUTE)
+  })
+})
+
+describe('pulih Time Boxing', () => {
+  const blockEnd = T0 + 30 * MINUTE
+
+  it('endTime sudah lewat → berhenti sebagai penanda blok: fase fokus, endTime dipertahankan', () => {
+    const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), T0)
+    const restored = restoreTimer(running, T0 + 45 * MINUTE)
+
+    expect(restored.running).toBe(false)
+    expect(restored.endTime).toBe(blockEnd)
+    expect(restored.phase).toBe('focus')
+  })
+
+  it('endTime masih jauh → pulih berjalan dengan akhir blok yang sama', () => {
+    const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), T0)
+    const restored = restoreTimer(running, T0 + 5 * MINUTE)
+
+    expect(restored.running).toBe(true)
+    expect(restored.endTime).toBe(blockEnd)
+    expect(restored.startedAt).toBe(T0)
   })
 })

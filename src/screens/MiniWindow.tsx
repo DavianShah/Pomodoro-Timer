@@ -2,7 +2,16 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { formatClock } from '@/timer/engine'
 import { MINI_ROOT_ID, syncThemeAndPhase } from '@/timer/miniWindow'
-import { phaseLabel, primaryLabel, sessionProgress } from '@/timer/labels'
+import {
+  boxingStatus,
+  isBlockPrompt,
+  phaseLabel,
+  primaryLabel,
+  sessionProgress,
+} from '@/timer/labels'
+import { blockEndingAt } from '@/timer/blocks'
+import { MINUTE, methodById } from '@/timer/methods'
+import { useBlocks } from '@/state/blocks'
 import { useTimerShortcuts } from '@/timer/useShortcuts'
 import type { TimerApi } from '@/timer/useTimer'
 
@@ -23,6 +32,11 @@ interface MiniWindowProps {
  */
 export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: MiniWindowProps) {
   const { state } = timer
+  const blocks = useBlocks((state) => state.blocks)
+  const isPrompt = isBlockPrompt(state, timer.now)
+  const method = methodById(state.method)
+  const trackedBlock =
+    method.mode === 'boxing' && state.endTime !== null ? blockEndingAt(blocks, state.endTime) : null
 
   // Spasi/R harus berfungsi saat fokus di window mini: listener di window ini.
   useTimerShortcuts(timer, { onMini: onMiniToggle, host: win })
@@ -43,9 +57,19 @@ export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: Mini
   const target = win.document.getElementById(MINI_ROOT_ID)
   if (target === null) return null
 
-  const label = primaryLabel(state)
-  const action = label === 'Selesai' ? timer.skip : label === 'Jeda' ? timer.pause : timer.start
-  const progress = sessionProgress(state, timer.display)
+  const label = isPrompt ? 'Selesai' : primaryLabel(state)
+  const action = isPrompt
+    ? () => timer.setBoxingEnd(null)
+    : label === 'Selesai'
+      ? timer.skip
+      : label === 'Jeda'
+        ? timer.pause
+        : timer.start
+  const progress = sessionProgress(
+    state,
+    timer.display,
+    trackedBlock !== null ? (trackedBlock.endMin - trackedBlock.startMin) * MINUTE : undefined,
+  )
 
   return createPortal(
     <div className="flex h-dvh flex-col gap-1 px-4 py-3">
@@ -64,7 +88,9 @@ export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: Mini
       </div>
 
       <p className="truncate text-xs text-ink-muted">
-        {phaseLabel(state.phase)}
+        {method.mode === 'boxing'
+          ? boxingStatus(state, blocks, timer.now)
+          : phaseLabel(state.phase)}
         {taskTitle ? ` · ${taskTitle}` : ''}
       </p>
 

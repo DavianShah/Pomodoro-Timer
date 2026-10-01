@@ -44,6 +44,7 @@ export function saveTimer(state: TimerState): void {
  *
  * - berjalan + endTime masih depan → lanjut dari sisa waktu;
  * - berjalan + endTime sudah lewat → sesi selesai, tanpa alarm;
+ * - Time Boxing: endTime = akhir blok, tetap tersimpan (penanda prompt);
  * - jaga → pulih apa adanya;
  * - data rusak / tidak konsisten → state awal, tanpa crash.
  */
@@ -62,6 +63,15 @@ export function restoreTimer(value: unknown, now: number): TimerState {
     return pausedFallback(base, method.id)
   }
 
+  if (base.running && method.mode === 'boxing') {
+    if (base.endTime !== null) {
+      // tick menerapkan "blok sudah lewat" → complete; endTime jadi penanda.
+      return tick({ ...base, remainingMs: null }, now)
+    }
+    // Berjalan tanpa akhir blok: data tidak konsisten → jadikan jaga.
+    return pausedFallback(base, method.id)
+  }
+
   if (
     base.running &&
     method.mode === 'countup' &&
@@ -77,7 +87,7 @@ export function restoreTimer(value: unknown, now: number): TimerState {
   const idle: TimerState = {
     ...base,
     running: false,
-    endTime: null,
+    endTime: method.mode === 'boxing' ? base.endTime : null,
     startedAt: null,
     elapsedMs: Math.max(0, base.elapsedMs),
   }

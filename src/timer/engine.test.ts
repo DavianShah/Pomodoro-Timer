@@ -3,11 +3,13 @@ import {
   createTimer,
   displayMs,
   elapsed,
+  endsFocusSession,
   formatClock,
   pause,
   plannedPhaseMs,
   remaining,
   reset,
+  setBoxingEnd,
   skip,
   start,
   tick,
@@ -185,5 +187,48 @@ describe('formatClock', () => {
     expect(formatClock(65_000)).toBe('1:05')
     expect(formatClock(0)).toBe('0:00')
     expect(formatClock(-5_000)).toBe('0:00')
+  })
+})
+
+describe('time boxing', () => {
+  const blockEnd = 30 * MINUTE
+
+  it('mulai butuh blok: endTime null atau sudah lewat → no-op', () => {
+    const idle = createTimer('timeboxing')
+    expect(idle.endTime).toBeNull()
+    expect(start(idle, 1_000)).toBe(idle)
+
+    const stale = setBoxingEnd(idle, 1_000)
+    expect(start(stale, 2_000)).toBe(stale)
+  })
+
+  it('mulai di dalam blok: running, endTime tetap penanda akhir blok', () => {
+    const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), 5 * MINUTE)
+    expect(running.running).toBe(true)
+    expect(running.endTime).toBe(blockEnd)
+    expect(running.startedAt).toBe(5 * MINUTE)
+    expect(running.remainingMs).toBeNull()
+  })
+
+  it('jeda no-op — blok berjalan mengikuti jam dinding', () => {
+    const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), 5 * MINUTE)
+    expect(pause(running, 10 * MINUTE)).toBe(running)
+  })
+
+  it('lewati akhir blok: berhenti, endTime dan fase dipertahankan untuk pilihan', () => {
+    const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), 5 * MINUTE)
+    const ended = tick(running, blockEnd + 1_000)
+    expect(ended.running).toBe(false)
+    expect(ended.endTime).toBe(blockEnd)
+    expect(ended.phase).toBe('focus')
+    expect(ended.startedAt).toBeNull()
+    expect(endsFocusSession(running, ended)).toBe(true)
+    expect(endsFocusSession(ended, ended)).toBe(false)
+  })
+
+  it('setBoxingEnd menyetel dan membersihkan penanda blok', () => {
+    const idle = createTimer('timeboxing')
+    expect(setBoxingEnd(idle, blockEnd).endTime).toBe(blockEnd)
+    expect(setBoxingEnd(idle, null).endTime).toBeNull()
   })
 })

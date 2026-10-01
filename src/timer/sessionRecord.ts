@@ -33,11 +33,41 @@ export interface FocusEndInput {
   now: number
   /** Task yang aktif saat sesi berakhir; null = tanpa task. */
   taskId: string | null
+  /** Time Boxing: panjang blok (ms) untuk plannedMs; absen = metode lain. */
+  boxing?: { plannedMs: number } | null
 }
 
-export function buildFocusSession({ prev, action, now, taskId }: FocusEndInput): SessionRow | null {
+export function buildFocusSession({
+  prev,
+  action,
+  now,
+  taskId,
+  boxing,
+}: FocusEndInput): SessionRow | null {
   if (prev.phase !== 'focus') return null
   const method = methodById(prev.method)
+
+  if (method.mode === 'boxing') {
+    // Anti-ganda: prompt tanpa sesi berjalan (startedAt null) bukan ujung sesi.
+    if (prev.startedAt === null) return null
+    const startedAt = prev.startedAt
+    const endedAt = action === 'auto' && prev.endTime !== null ? prev.endTime : now
+    const actualMs = endedAt - startedAt
+    if (!(actualMs > 0)) return null
+    return {
+      id: focusSessionId(prev.method, startedAt),
+      method: prev.method,
+      kind: 'focus',
+      startedAt,
+      endedAt,
+      plannedMs: boxing?.plannedMs ?? actualMs,
+      actualMs,
+      ...(taskId !== null ? { taskId } : {}),
+      // Blok batal (reset) bukan selesai; ujung lain = sesi selesai.
+      completed: action !== 'reset',
+      date: localDateKey(endedAt),
+    }
+  }
 
   // Waktu fokus aktual: hitung maju = akumulasi; hitung mundur = rencana −
   // sisa (jeda tidak ikut terhitung karena jeda membekukan sisa waktu).
