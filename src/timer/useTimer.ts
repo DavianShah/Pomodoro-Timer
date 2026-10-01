@@ -11,11 +11,30 @@ import {
   tick,
   type TimerState,
 } from './engine'
-import { restoreTimer, saveTimer } from './persist'
+import { isTimerShape, restoreTimer, saveTimer } from './persist'
 import { getAlarmState, playAlarm, subscribeAlarm, unlockAlarm } from './alarm'
 import { notifyPhaseDone, requestNotifyPermission } from './notify'
 import { documentTitle, phaseLabel } from './labels'
+import { recordFocusSession } from '@/data/recordFocusSession'
+import type { FocusEndAction } from './sessionRecord'
 import type { TimerWorkerEvent } from './protocol'
+
+/**
+ * Catat ujung sesi fokus dari aksi manual. Lewati/reset saat fase fokus
+ * (termasuk idle — builder menolak durasi nol) itu ujung sesi; fase lain
+ * bukan urusan pencatatan.
+ */
+function recordFocusEnd(
+  prev: TimerState,
+  next: TimerState,
+  action: FocusEndAction,
+  at: number,
+): void {
+  if (prev.phase !== 'focus') return
+  if (action === 'reset' || (next !== prev && next.phase !== 'focus')) {
+    void recordFocusSession(prev, action, at)
+  }
+}
 
 export interface TimerApi {
   state: TimerState
@@ -41,9 +60,17 @@ export interface TimerApi {
  */
 export function useTimer(): TimerApi {
   const methodId = useSettings((state) => state.settings.lastMethod)
-  const [state, setState] = useState<TimerState>(() =>
-    restoreTimer(read<unknown>('timer', null), Date.now()),
-  )
+  const [state, setState] = useState<TimerState>(() => {
+    const raw = read<unknown>('timer', null)
+    const at = Date.now()
+    const restored = restoreTimer(raw, at)
+    // Fokus yang berakhir selama tab tertutup: catat sekali. Id diturunkan
+    // dari state mentah yang sama → pemulihan ganda tidak menggandakan sesi.
+    if (isTimerShape(raw) && raw.phase === 'focus' && raw.running && restored.phase !== 'focus') {
+      void recordFocusSession(raw, 'auto', at)
+    }
+    return restored
+  })
   const [now, setNow] = useState(() => Date.now())
   const [completionMarker, setCompletionMarker] = useState<string | null>(null)
   const [alarmState, setAlarmState] = useState(getAlarmState)
@@ -108,6 +135,10 @@ export function useTimer(): TimerApi {
         if (document.visibilityState === 'hidden') {
           setCompletionMarker(`${phaseLabel(next.phase)} siap`)
         }
+        if (prev.phase === 'focus') {
+          // Pencatatan dari transisi, bukan tick: satu sesi per akhir fokus.
+          void recordFocusSession(prev, 'auto', at)
+        }
       }
     }
     worker.postMessage({ type: 'run' })
@@ -116,13 +147,18 @@ export function useTimer(): TimerApi {
     }
   }, [state.running])
 
-  const apply = useCallback((transition: (current: TimerState, at: number) => TimerState) => {
-    const at = Date.now()
-    const next = transition(stateRef.current, at)
-    stateRef.current = next
-    setNow(at)
-    setState(next)
-  }, [])
+  const apply = useCallback(
+    (transition: (current: TimerState, at: number) => TimerState, endAction?: FocusEndAction) => {
+      const at = Date.now()
+      const prev = stateRef.current
+      const next = transition(prev, at)
+      stateRef.current = next
+      setNow(at)
+      setState(next)
+      if (endAction !== undefined) recordFocusEnd(prev, next, endAction, at)
+    },
+    [],
+  )
 
   const start = useCallback(() => {
     apply(startPhase)
@@ -132,8 +168,8 @@ export function useTimer(): TimerApi {
   }, [apply])
 
   const pause = useCallback(() => apply(pausePhase), [apply])
-  const skip = useCallback(() => apply(skipPhase), [apply])
-  const reset = useCallback(() => apply((current) => resetTimer(current)), [apply])
+  const skip = useCallback(() => apply(skipPhase, 'skip'), [apply])
+  const reset = useCallback(() => apply((current) => resetTimer(current), 'reset'), [apply])
 
   return {
     state,

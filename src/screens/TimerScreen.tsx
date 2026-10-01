@@ -1,16 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ThemeToggle from './ThemeToggle'
 import MiniWindow from './MiniWindow'
+import TaskPanel from './TaskPanel'
 import { METHOD_CONFIGS, methodById, methodDetail } from '@/timer/methods'
 import { formatClock } from '@/timer/engine'
 import { primaryLabel, sessionProgress, sessionStatus } from '@/timer/labels'
 import { useTimer } from '@/timer/useTimer'
 import { useMiniWindow } from '@/timer/useMiniWindow'
 import { useTimerShortcuts } from '@/timer/useShortcuts'
+import { useTasks } from '@/state/tasks'
 import { useSettings } from '@/state/settings'
 
 export default function TimerScreen() {
   const setLastMethod = useSettings((state) => state.setLastMethod)
+  const loadTasks = useTasks((state) => state.load)
+  const tasksOpen = useTasks((state) => state.open)
+  const toggleTasks = useTasks((state) => state.toggleOpen)
+  const tasks = useTasks((state) => state.tasks)
+  const activeTaskId = useSettings((state) => state.settings.activeTaskId)
+  const activeTaskTitle = tasks.find((task) => task.id === activeTaskId)?.title
   const timer = useTimer()
   const { state } = timer
 
@@ -21,11 +29,24 @@ export default function TimerScreen() {
     document.documentElement.dataset.phase = state.phase
   }, [state.phase])
 
+  // Daftar task sekali per layar; panel membaca store yang sama.
+  useEffect(() => {
+    void loadTasks()
+  }, [loadTasks])
+
   const [showHelp, setShowHelp] = useState(false)
 
   const mini = useMiniWindow(state.running)
 
-  useTimerShortcuts(timer, { onMini: mini.toggle })
+  useTimerShortcuts(timer, { onMini: mini.toggle, onTasks: toggleTasks })
+
+  // Panel ditutup lewat Escape/T → tombolnya kembali menerima fokus.
+  const taskButtonRef = useRef<HTMLButtonElement>(null)
+  const tasksWasOpen = useRef(tasksOpen)
+  useEffect(() => {
+    if (tasksWasOpen.current && !tasksOpen) taskButtonRef.current?.focus()
+    tasksWasOpen.current = tasksOpen
+  }, [tasksOpen])
 
   const countupFocus = method.mode === 'countup' && state.phase === 'focus'
   const label = primaryLabel(state)
@@ -67,6 +88,9 @@ export default function TimerScreen() {
         <p aria-live="polite" className="mt-6 text-center text-sm text-ink-muted">
           {status}
         </p>
+        {activeTaskTitle && (
+          <p className="mt-1 text-center text-xs text-ink-muted">{activeTaskTitle}</p>
+        )}
 
         <div
           id="kontrol-timer"
@@ -96,6 +120,16 @@ export default function TimerScreen() {
             className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
           >
             Jendela mini
+          </button>
+          <button
+            ref={taskButtonRef}
+            type="button"
+            aria-expanded={tasksOpen}
+            aria-controls="panel-task"
+            onClick={toggleTasks}
+            className="rounded-md border border-line px-5 py-3 text-sm text-ink-muted transition-colors hover:border-line-strong"
+          >
+            Task
           </button>
         </div>
 
@@ -144,7 +178,7 @@ export default function TimerScreen() {
 
       <footer className="border-t border-line px-6 py-4 sm:px-10">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-ink-muted">M3: jendela mini sudah jalan.</p>
+          <p className="text-sm text-ink-muted">M4a: task dan pencatatan sesi jalan.</p>
           <button
             type="button"
             aria-expanded={showHelp}
@@ -165,11 +199,20 @@ export default function TimerScreen() {
             <li>S · lewati</li>
             <li>M · jendela mini</li>
             <li>1–5 · ganti metode</li>
+            <li>T · task</li>
           </ul>
         )}
       </footer>
 
-      {mini.win !== null && <MiniWindow win={mini.win} timer={timer} onMiniToggle={mini.toggle} />}
+      {mini.win !== null && (
+        <MiniWindow
+          win={mini.win}
+          timer={timer}
+          onMiniToggle={mini.toggle}
+          taskTitle={activeTaskTitle ?? null}
+        />
+      )}
+      {tasksOpen && <TaskPanel onClose={toggleTasks} />}
     </div>
   )
 }

@@ -37,6 +37,7 @@ docs/PRD.md          spesifikasi produk
 DESIGN.md            arah desain dan token
 src/app/             shell aplikasi, provider, konstanta
 src/db/              skema Dexie
+src/data/            repository Dexie (task, sesi)
 src/lib/             utilitas murni (penyimpanan, waktu)
 src/pwa/             pendaftaran service worker
 src/screens/         layar
@@ -69,7 +70,8 @@ e2e/                 tes Playwright
 | M1    | Mesin timer, Worker, semua metode, tes                   | selesai |
 | M2    | Notifikasi sesi, counter sesi, shortcut, pemulihan state | selesai |
 | M3    | Jendela mini (Document PiP) dan fallback popup           | selesai |
-| M4    | Task list, statistik, streak, tema                       | belum   |
+| M4a   | Task list (F9), lapisan data Dexie, pencatatan sesi      | selesai |
+| M4b   | Statistik, streak, tema                                 | belum   |
 | M5    | Time Boxing, PWA, polishing, Lighthouse                  | belum   |
 
 ## Uji manual: jendela mini PiP (Chrome/Edge)

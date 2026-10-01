@@ -17,12 +17,18 @@ describe('parseSettings', () => {
     expect(parseSettings({ theme: 'dark', lastMethod: 'flowtime' })).toEqual({
       theme: 'dark',
       lastMethod: 'flowtime',
+      activeTaskId: null,
     })
     expect(parseSettings({ theme: 'light' })).toEqual({
       theme: 'light',
       lastMethod: DEFAULT_SETTINGS.lastMethod,
+      activeTaskId: null,
     })
     expect(parseSettings({ lastMethod: '' })).toEqual(DEFAULT_SETTINGS)
+    expect(parseSettings({ activeTaskId: 't9' })).toEqual({
+      ...DEFAULT_SETTINGS,
+      activeTaskId: 't9',
+    })
   })
 })
 

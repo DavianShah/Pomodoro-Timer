@@ -10,6 +10,8 @@ interface MiniWindowProps {
   win: Window
   timer: TimerApi
   onMiniToggle: () => void
+  /** Task aktif; tampil di baris fase. */
+  taskTitle: string | null
 }
 
 /**
@@ -19,7 +21,7 @@ interface MiniWindowProps {
  * ekstra, dan portal container di window lain otomatis diikuti listener
  * React. Logika timer tetap di halaman utama.
  */
-export default function MiniWindow({ win, timer, onMiniToggle }: MiniWindowProps) {
+export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: MiniWindowProps) {
   const { state } = timer
 
   // Spasi/R harus berfungsi saat fokus di window mini: listener di window ini.
@@ -61,7 +63,10 @@ export default function MiniWindow({ win, timer, onMiniToggle }: MiniWindowProps
         />
       </div>
 
-      <p className="text-xs text-ink-muted">{phaseLabel(state.phase)}</p>
+      <p className="truncate text-xs text-ink-muted">
+        {phaseLabel(state.phase)}
+        {taskTitle ? ` · ${taskTitle}` : ''}
+      </p>
 
       <p className="angka flex flex-1 items-center justify-center text-center text-[clamp(2.5rem,18vw,3.5rem)]">
         {formatClock(timer.display)}

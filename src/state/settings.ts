@@ -8,11 +8,14 @@ export type ThemeChoice = 'system' | 'light' | 'dark'
 export interface AppSettings {
   theme: ThemeChoice
   lastMethod: string
+  /** Task aktif untuk sesi fokus berikutnya; null = tanpa task (F9). */
+  activeTaskId: string | null
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   lastMethod: DEFAULT_METHOD,
+  activeTaskId: null,
 }
 
 const isTheme = (value: unknown): value is ThemeChoice =>
@@ -23,7 +26,10 @@ export function parseSettings(value: unknown): AppSettings {
   const raw = value as Record<string, unknown>
   return {
     theme: isTheme(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme,
-    lastMethod: typeof raw.lastMethod === 'string' && raw.lastMethod ? raw.lastMethod : DEFAULT_METHOD,
+    lastMethod:
+      typeof raw.lastMethod === 'string' && raw.lastMethod ? raw.lastMethod : DEFAULT_METHOD,
+    activeTaskId:
+      typeof raw.activeTaskId === 'string' && raw.activeTaskId ? raw.activeTaskId : null,
   }
 }
 
@@ -33,6 +39,7 @@ interface SettingsState {
   databaseAvailable: boolean
   setTheme: (theme: ThemeChoice) => void
   setLastMethod: (method: string) => void
+  setActiveTask: (taskId: string | null) => void
   load: () => Promise<void>
 }
 
@@ -62,9 +69,12 @@ export const useSettings = create<SettingsState>()((set, get) => {
     databaseAvailable: true,
     setTheme: (theme) => save({ theme }),
     setLastMethod: (lastMethod) => save({ lastMethod }),
+    setActiveTask: (activeTaskId) => save({ activeTaskId }),
     load: async () => {
-      const local = read<AppSettings>(SETTINGS_KEY, { ...DEFAULT_SETTINGS }, (v): v is AppSettings =>
-        typeof v === 'object' && v !== null,
+      const local = read<AppSettings>(
+        SETTINGS_KEY,
+        { ...DEFAULT_SETTINGS },
+        (v): v is AppSettings => typeof v === 'object' && v !== null,
       )
 
       let fromDb: AppSettings | undefined

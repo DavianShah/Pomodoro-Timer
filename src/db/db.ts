@@ -13,13 +13,16 @@ export interface SessionRow {
   actualMs: number
   taskId?: string
   completed: boolean
+  /** Tanggal lokal sesi (`YYYY-MM-DD`) — grouping harian langsung (M4a). */
+  date: string
 }
 
 export interface TaskRow {
   id: string
   title: string
   createdAt: number
-  doneAt?: number
+  /** Saat ditandai selesai; hilang (undefined) = kembali aktif. */
+  doneAt?: number | undefined
   sessionCount: number
 }
 
@@ -60,4 +63,9 @@ db.version(1).stores({
   blocks: 'id, date, startMin, [date+startMin]',
   presets: 'id, name',
   settings: 'id',
+})
+
+// v2: indeks `date` pada sessions untuk pengelompokan harian (F10 nanti).
+db.version(2).stores({
+  sessions: 'id, startedAt, method, taskId, kind, date',
 })

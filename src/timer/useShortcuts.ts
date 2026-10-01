@@ -24,6 +24,8 @@ export interface ShortcutOptions {
   reset: () => void
   /** Toggle jendela mini (F4). */
   onMini: (() => void) | null
+  /** Toggle panel task (F9). */
+  onTasks: (() => void) | null
   selectMethod: (index: number) => void
 }
 
@@ -67,7 +69,8 @@ export function useShortcuts(options: ShortcutOptions, host: Window = window): v
       const letter = event.key.toLowerCase()
       if (letter === 'r') opts.reset()
       else if (letter === 's') opts.skip()
-      else if (letter === 'm') opts.onMini?.()
+      if (letter === 'm') opts.onMini?.()
+      else if (letter === 't') opts.onTasks?.()
     }
 
     host.addEventListener('keydown', onKeyDown)
@@ -78,6 +81,8 @@ export function useShortcuts(options: ShortcutOptions, host: Window = window): v
 export interface TimerShortcutHooks {
   /** Toggle jendela mini; null = tidak aktif. */
   onMini?: (() => void) | null
+  /** Toggle panel task; null = tidak aktif. */
+  onTasks?: (() => void) | null
   /** Window penerima listener; default halaman utama. */
   host?: Window
 }
@@ -85,7 +90,7 @@ export interface TimerShortcutHooks {
 /** Shortcut alur timer — dipakai layar utama dan jendela mini (F4). */
 export function useTimerShortcuts(timer: TimerApi, hooks: TimerShortcutHooks = {}): void {
   const setLastMethod = useSettings((state) => state.setLastMethod)
-  const { onMini = null, host } = hooks
+  const { onMini = null, onTasks = null, host } = hooks
 
   const selectMethod = useCallback(
     (index: number) => {
@@ -106,6 +111,7 @@ export function useTimerShortcuts(timer: TimerApi, hooks: TimerShortcutHooks = {
       skip: timer.skip,
       reset: timer.reset,
       onMini,
+      onTasks,
       selectMethod,
     },
     host,

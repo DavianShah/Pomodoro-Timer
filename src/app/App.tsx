@@ -21,7 +21,8 @@ export default function App() {
       </a>
       {!databaseAvailable && (
         <p role="status" className="bg-paper-sunken px-6 py-3 text-sm text-ink-muted sm:px-10">
-          Riwayat sesi tidak bisa disimpan: penyimpanan browser tidak tersedia. Timer tetap jalan.
+          Riwayat sesi dan task tidak bisa disimpan: penyimpanan browser tidak tersedia. Timer tetap
+          jalan.
         </p>
       )}
       <TimerScreen />
