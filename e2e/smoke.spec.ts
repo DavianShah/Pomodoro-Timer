@@ -66,8 +66,7 @@ test('teks tombol metode aktif kontras terhadap latarnya sendiri', async ({ page
   await page.goto('/')
 
   const ratio = await page.evaluate((): number => {
-    const parse = (value: string): number[] =>
-      (value.match(/\d+/g) ?? []).slice(0, 3).map(Number)
+    const parse = (value: string): number[] => (value.match(/\d+/g) ?? []).slice(0, 3).map(Number)
     const luminance = (rgb: number[]): number => {
       const [r, g, b] = rgb.map((channel) => {
         const c = channel / 255
@@ -138,4 +137,46 @@ test('lompat ke kontrol timer lewat keyboard', async ({ page }) => {
   await expect(skip).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.locator('#kontrol-timer')).toBeFocused()
+})
+
+test('timer berjalan dan berhenti saat dijeda', async ({ page }) => {
+  await page.goto('/')
+  const clock = page.locator('h1')
+  await expect(clock).toHaveText('25:00')
+
+  const flowtime = page.getByRole('button', { name: /Flowtime/ })
+  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+
+  // Saat berjalan, metode tidak boleh bisa diganti (PRD F3).
+  await expect(flowtime).toBeDisabled()
+  await expect(clock).not.toHaveText('25:00')
+  const frozen = await clock.textContent()
+
+  await page.getByRole('button', { name: 'Jeda', exact: true }).click()
+  await page.waitForTimeout(1_500)
+  await expect(clock).toHaveText(frozen ?? '')
+  await expect(flowtime).toBeEnabled()
+})
+
+test('Flowtime hitung maju, Selesai menyiapkan istirahat proporsional', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: /Flowtime/ }).click()
+
+  const clock = page.locator('h1')
+  await expect(clock).toHaveText('0:00')
+
+  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  await expect(clock).not.toHaveText('0:00')
+  await expect(page.getByRole('button', { name: 'Selesai', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Selesai', exact: true }).click()
+  // Fokus <25 menit → istirahat 5 menit (PRD bagian 3).
+  await expect(page.getByRole('button', { name: 'Mulai istirahat' })).toBeVisible()
+  await expect(clock).toHaveText('5:00')
+  await expect(page.getByText('Istirahat', { exact: true })).toBeVisible()
+
+  const accent = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+  )
+  expect(accent).toBe(TOKENS.terang.accentBreak)
 })

@@ -42,6 +42,7 @@ src/pwa/             pendaftaran service worker
 src/screens/         layar
 src/state/           store Zustand
 src/styles/          token dan lapisan dasar
+src/timer/           mesin timer murni, konfigurasi metode, Worker tick
 public/              font, ikon, manifest
 e2e/                 tes Playwright
 ```
@@ -65,7 +66,7 @@ e2e/                 tes Playwright
 | Tahap | Isi                                                      | Status  |
 | ----- | -------------------------------------------------------- | ------- |
 | M0    | Repo, Vite, token desain, manifest, deploy               | selesai |
-| M1    | Mesin timer, Worker, semua metode, tes                   | belum   |
+| M1    | Mesin timer, Worker, semua metode, tes                   | selesai |
 | M2    | Layar timer final, shortcut, notifikasi, pemulihan state | belum   |
 | M3    | Jendela mini dan fallback                                | belum   |
 | M4    | Task list, statistik, streak, tema                       | belum   |
