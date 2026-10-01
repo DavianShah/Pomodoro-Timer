@@ -15,6 +15,8 @@ export interface SessionRow {
   completed: boolean
   /** Tanggal lokal sesi (`YYYY-MM-DD`) — grouping harian langsung (M4a). */
   date: string
+  /** Nama preset Custom saat sesi (sublabel statistik); absen = metode lain. */
+  methodLabel?: string
 }
 
 export interface TaskRow {
@@ -44,6 +46,8 @@ export interface PresetRow {
   breakMs: number
   longBreakMs?: number
   cycle?: number
+  /** Waktu simpan — urutan daftar preset (v4); absen pada baris skema lama. */
+  createdAt?: number
 }
 
 export interface SettingsRow {
@@ -76,4 +80,9 @@ db.version(2).stores({
 // kini alur hidup planned → running → done/overrun; indeks tidak berubah.
 db.version(3).stores({
   blocks: 'id, date, startMin, [date+startMin]',
+})
+
+// v4: preset Custom (F3) — indeks createdAt untuk urutan daftar.
+db.version(4).stores({
+  presets: 'id, name, createdAt',
 })

@@ -1,10 +1,10 @@
 import 'fake-indexeddb/auto'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SETTINGS_KEY, STORAGE_VERSION } from '@/app/constants'
 import { db } from '@/db/db'
 import { read, write } from '@/lib/storage'
 import { createTimer, start } from '@/timer/engine'
-import { MINUTE } from '@/timer/methods'
+import { configureMethods, DEFAULT_CUSTOM, MINUTE } from '@/timer/methods'
 import { recordFocusSession, readActiveTaskId } from './recordFocusSession'
 import { addTask } from './tasks'
 
@@ -14,6 +14,10 @@ beforeEach(async () => {
   localStorage.clear()
   await db.tasks.clear()
   await db.sessions.clear()
+})
+
+afterEach(() => {
+  configureMethods({ durations: {}, custom: null })
 })
 
 function seedActiveTask(taskId: string): void {
@@ -50,6 +54,40 @@ describe('recordFocusSession', () => {
     expect((await db.tasks.get(task.id))?.sessionCount).toBe(1)
     // Ringkasan daftar tersimpan juga tersinkron.
     expect(read<unknown>(SETTINGS_KEY, null)).not.toBeNull()
+  })
+
+  it('sesi Custom membawa nama preset sebagai methodLabel', async () => {
+    const custom = { ...DEFAULT_CUSTOM, focusMs: 40 * MINUTE, presetName: 'Pulih' }
+    write(SETTINGS_KEY, STORAGE_VERSION, {
+      theme: 'system',
+      lastMethod: 'custom',
+      activeTaskId: null,
+      custom,
+    })
+    configureMethods({ durations: {}, custom: { ...custom } })
+
+    const prev = start(createTimer('custom'), T0)
+    const session = await recordFocusSession(prev, 'skip', T0 + 5 * MINUTE)
+
+    expect(session?.method).toBe('custom')
+    expect(session?.methodLabel).toBe('Pulih')
+  })
+
+  it('sesi Custom tanpa preset → tanpa methodLabel', async () => {
+    const custom = { ...DEFAULT_CUSTOM, focusMs: 40 * MINUTE, presetName: null }
+    write(SETTINGS_KEY, STORAGE_VERSION, {
+      theme: 'system',
+      lastMethod: 'custom',
+      activeTaskId: null,
+      custom,
+    })
+    configureMethods({ durations: {}, custom: { ...custom } })
+
+    const prev = start(createTimer('custom'), T0)
+    const session = await recordFocusSession(prev, 'skip', T0 + 5 * MINUTE)
+
+    expect(session?.method).toBe('custom')
+    expect(session?.methodLabel).toBeUndefined()
   })
 
   it('tanpa task aktif → sesi tetap tercatat tanpa taskId', async () => {

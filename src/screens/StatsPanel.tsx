@@ -140,7 +140,12 @@ function GroupList({ items }: { items: GroupStat[] }) {
       {items.map((item) => (
         <li key={item.key}>
           <div className="flex items-baseline justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate">{item.label}</span>
+            <span className="min-w-0">
+              <span className="block truncate">{item.label}</span>
+              {item.sub && (
+                <span className="block truncate text-xs text-ink-muted">{item.sub}</span>
+              )}
+            </span>
             <span className="angka shrink-0 text-xs text-ink-muted">
               {formatFocusMs(item.focusMs)} · {item.completedCount} sesi
             </span>

@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createTimer, elapsed, pause, setBoxingEnd, start } from './engine'
-import { MINUTE } from './methods'
+import { configureMethods, DEFAULT_CUSTOM, MINUTE } from './methods'
 import { loadTimer, restoreTimer, saveTimer } from './persist'
 
 const T0 = Date.UTC(2026, 0, 5, 8, 0, 0)
@@ -8,6 +8,10 @@ const T0 = Date.UTC(2026, 0, 5, 8, 0, 0)
 describe('simpan/pulih timer', () => {
   beforeEach(() => {
     localStorage.clear()
+  })
+
+  afterEach(() => {
+    configureMethods({ durations: {}, custom: null })
   })
 
   it('mengembalikan countdown yang sedang jalan dari sisa waktu', () => {
@@ -39,6 +43,46 @@ describe('simpan/pulih timer', () => {
     expect(restored.phase).toBe('focus')
     expect(restored.remainingMs).toBe(paused.remainingMs)
     expect(restored.remainingMs).toBe(18 * MINUTE)
+  })
+
+  it('metode Custom tanpa konfigurasi tersimpan → jatuh ke Pomodoro, tanpa crash', () => {
+    configureMethods({ durations: {}, custom: null })
+    const raw = {
+      method: 'custom',
+      phase: 'focus',
+      running: false,
+      cycleIndex: 1,
+      endTime: null,
+      remainingMs: 40 * MINUTE,
+      elapsedMs: 0,
+      startedAt: null,
+    }
+
+    const restored = restoreTimer(raw, T0)
+    expect(restored.method).toBe('pomodoro')
+    expect(restored.running).toBe(false)
+    expect(restored.remainingMs).toBe(40 * MINUTE)
+  })
+
+  it('metode Custom dengan konfigurasi tersimpan tetap Custom', () => {
+    configureMethods({
+      durations: {},
+      custom: { ...DEFAULT_CUSTOM, focusMs: 40 * MINUTE },
+    })
+    const raw = {
+      method: 'custom',
+      phase: 'focus',
+      running: false,
+      cycleIndex: 1,
+      endTime: null,
+      remainingMs: 40 * MINUTE,
+      elapsedMs: 0,
+      startedAt: null,
+    }
+
+    const restored = restoreTimer(raw, T0)
+    expect(restored.method).toBe('custom')
+    expect(restored.remainingMs).toBe(40 * MINUTE)
   })
 
   it('Flowtime hitung maju yang berjalan: elapsed berlanjut dari waktu pulih', () => {

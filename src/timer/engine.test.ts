@@ -14,10 +14,11 @@ import {
   start,
   tick,
 } from './engine'
-import { MINUTE } from './methods'
+import { configureMethods, MINUTE } from './methods'
 
 afterEach(() => {
   vi.useRealTimers()
+  configureMethods({ durations: {}, custom: null })
 })
 
 describe('konfigurasi metode', () => {
@@ -31,6 +32,59 @@ describe('konfigurasi metode', () => {
     expect(plannedPhaseMs('pomodoro', 'longBreak')).toBe(15 * MINUTE)
     expect(plannedPhaseMs('ultradian', 'focus')).toBe(90 * MINUTE)
     expect(plannedPhaseMs('52-17', 'longBreak')).toBe(17 * MINUTE)
+  })
+})
+
+describe('durasi override dan Custom (PRD F3)', () => {
+  it('plannedPhaseMs memakai override pengguna', () => {
+    configureMethods({
+      durations: { pomodoro: { focusMs: 45 * MINUTE, breakMs: 10 * MINUTE } },
+      custom: null,
+    })
+    expect(plannedPhaseMs('pomodoro', 'focus')).toBe(45 * MINUTE)
+    expect(plannedPhaseMs('pomodoro', 'break')).toBe(10 * MINUTE)
+    expect(plannedPhaseMs('pomodoro', 'longBreak')).toBe(15 * MINUTE)
+  })
+
+  it('mesin Custom: fokus/istirahat override, longBreak tiap siklus ke-3', () => {
+    configureMethods({
+      durations: {},
+      custom: { focusMs: 40 * MINUTE, breakMs: 8 * MINUTE, longBreakMs: 12 * MINUTE, cycle: 3 },
+    })
+    const state = createTimer('custom')
+    expect(state.method).toBe('custom')
+    expect(state.remainingMs).toBe(40 * MINUTE)
+
+    const focusDone = tick(start(state, 1_000), 1_000 + 40 * MINUTE)
+    expect(focusDone.phase).toBe('break')
+    expect(focusDone.remainingMs).toBe(8 * MINUTE)
+
+    const backToFocus = tick(start(focusDone, 2_000), 2_000 + 8 * MINUTE)
+    expect(backToFocus.phase).toBe('focus')
+    expect(backToFocus.cycleIndex).toBe(2)
+
+    const secondDone = tick(start(backToFocus, 3_000), 3_000 + 40 * MINUTE)
+    expect(secondDone.phase).toBe('break')
+    const thirdFocus = tick(start(secondDone, 4_000), 4_000 + 8 * MINUTE)
+    expect(thirdFocus.phase).toBe('focus')
+    expect(thirdFocus.cycleIndex).toBe(3)
+
+    const thirdDone = tick(start(thirdFocus, 5_000), 5_000 + 40 * MINUTE)
+    expect(thirdDone.phase).toBe('longBreak')
+    expect(thirdDone.remainingMs).toBe(12 * MINUTE)
+  })
+
+  it('Custom tanpa istirahat panjang: siklus melingkar, tanpa longBreak', () => {
+    configureMethods({
+      durations: {},
+      custom: { focusMs: 10 * MINUTE, breakMs: 2 * MINUTE, longBreakMs: null, cycle: 4 },
+    })
+    let state = tick(start(createTimer('custom'), 1_000), 1_000 + 10 * MINUTE)
+    expect(state.phase).toBe('break')
+    state = tick(start(state, 2_000), 2_000 + 2 * MINUTE)
+    expect(state.phase).toBe('focus')
+    expect(state.cycleIndex).toBe(2)
+    expect(state.remainingMs).toBe(10 * MINUTE)
   })
 })
 

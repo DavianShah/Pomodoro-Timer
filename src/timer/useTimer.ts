@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSettings } from '@/state/settings'
+import { configureMethodsFromLocal, useSettings } from '@/state/settings'
 import { useBlocks } from '@/state/blocks'
 import { read } from '@/lib/storage'
 import {
@@ -73,6 +73,9 @@ export interface TimerApi {
 export function useTimer(): TimerApi {
   const methodId = useSettings((state) => state.settings.lastMethod)
   const [state, setState] = useState<TimerState>(() => {
+    // Registry metode (durasi/Custom) dari localStorage dulu — sinkron,
+    // sebelum restore memakai methodById (PRD F3).
+    configureMethodsFromLocal()
     const raw = read<unknown>('timer', null)
     const at = Date.now()
     const restored = restoreTimer(raw, at)
@@ -118,6 +121,20 @@ export function useTimer(): TimerApi {
   if (prevMethodId !== methodId && !state.running) {
     setPrevMethodId(methodId)
     if (state.method !== methodId) setState(createTimer(methodId))
+  }
+
+  // Durasi metode berubah (panel pengaturan / muat pengaturan) → render ulang
+  // berikut terpicu oleh langganan ini; kunci dilacak walau berjalan supaya
+  // perubahan yang terjadi saat sesi berjalan tidak me-reset timer dijeda.
+  const durations = useSettings((state) => state.settings.durations)
+  const customConfig = useSettings((state) => state.settings.custom)
+  const durationKey = `${JSON.stringify(durations)}|${JSON.stringify(customConfig)}`
+  const [prevDurationKey, setPrevDurationKey] = useState(durationKey)
+  if (prevDurationKey !== durationKey) {
+    setPrevDurationKey(durationKey)
+    // Hanya fase fokus yang dibangun ulang; istirahat yang sedang jaga
+    // selesai dengan sisa yang tersimpan, lalu memakai durasi baru.
+    if (!state.running && state.phase === 'focus') setState(createTimer(state.method))
   }
 
   // Simpan tiap transisi: tick yang tidak menyelesaikan mengembalikan

@@ -2,8 +2,23 @@ import { create } from 'zustand'
 import { DEFAULT_METHOD, SETTINGS_KEY, STORAGE_VERSION } from '@/app/constants'
 import { db } from '@/db/db'
 import { read, storageWorks, write } from '@/lib/storage'
+import {
+  configureMethods,
+  DEFAULT_CUSTOM,
+  DURATION_LIMITS,
+  EDITABLE_METHOD_IDS,
+  inDurationRange,
+  type CustomConfig,
+  type DurationOverride,
+  type EditableMethodId,
+} from '@/timer/methods'
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
+
+/** Simpanan Custom di pengaturan: nilai + nama preset sumber (null = buatan tangan). */
+export interface StoredCustom extends CustomConfig {
+  presetName: string | null
+}
 
 export interface AppSettings {
   theme: ThemeChoice
@@ -12,6 +27,10 @@ export interface AppSettings {
   activeTaskId: string | null
   /** Wake Lock: layar tetap menyala saat timer jalan (F14). */
   wakeLock: boolean
+  /** Override durasi per metode (F3); absen = bawaan metode. */
+  durations: Partial<Record<EditableMethodId, DurationOverride>>
+  /** Konfigurasi metode Custom; null = korup/tidak ada — engine jatuh ke Pomodoro. */
+  custom: StoredCustom | null
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -19,10 +38,80 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastMethod: DEFAULT_METHOD,
   activeTaskId: null,
   wakeLock: true,
+  durations: {},
+  custom: { ...DEFAULT_CUSTOM, presetName: null },
 }
 
 const isTheme = (value: unknown): value is ThemeChoice =>
   value === 'system' || value === 'light' || value === 'dark'
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+/**
+ * Parse satu override durasi: focus+break wajib valid; longBreak/cycle
+ * opsional dan divalidasi hanya bila ada. Tidak utuh → null (bawaan).
+ */
+function parseOverride(value: unknown): DurationOverride | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Record<string, unknown>
+  if (!isFiniteNumber(raw.focusMs) || !inDurationRange('focus', raw.focusMs)) return null
+  if (!isFiniteNumber(raw.breakMs) || !inDurationRange('break', raw.breakMs)) return null
+  const override: DurationOverride = { focusMs: raw.focusMs, breakMs: raw.breakMs }
+  if (raw.longBreakMs !== undefined && raw.longBreakMs !== null) {
+    if (!isFiniteNumber(raw.longBreakMs) || !inDurationRange('longBreak', raw.longBreakMs))
+      return null
+    override.longBreakMs = raw.longBreakMs
+  }
+  if (raw.cycle !== undefined && raw.cycle !== null) {
+    if (!isFiniteNumber(raw.cycle) || !inDurationRange('cycle', raw.cycle)) return null
+    override.cycle = raw.cycle
+  }
+  return override
+}
+
+function parseDurations(value: unknown): AppSettings['durations'] {
+  if (typeof value !== 'object' || value === null) return {}
+  const raw = value as Record<string, unknown>
+  const durations: AppSettings['durations'] = {}
+  for (const id of EDITABLE_METHOD_IDS) {
+    const override = parseOverride(raw[id])
+    if (override !== null) durations[id] = override
+  }
+  return durations
+}
+
+function parseCustom(value: unknown): StoredCustom | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Record<string, unknown>
+  if (!isFiniteNumber(raw.focusMs) || !inDurationRange('focus', raw.focusMs)) return null
+  if (!isFiniteNumber(raw.breakMs) || !inDurationRange('break', raw.breakMs)) return null
+  let longBreakMs: number | null = null
+  if (raw.longBreakMs !== null && raw.longBreakMs !== undefined) {
+    if (!isFiniteNumber(raw.longBreakMs) || !inDurationRange('longBreak', raw.longBreakMs))
+      return null
+    longBreakMs = raw.longBreakMs
+  }
+  let cycle = 1
+  if (raw.cycle !== null && raw.cycle !== undefined) {
+    // Siklus 1 = tanpa siklus (toggle mati); input pengguna dibatasi 2–8.
+    if (
+      !isFiniteNumber(raw.cycle) ||
+      !Number.isInteger(raw.cycle) ||
+      raw.cycle < 1 ||
+      raw.cycle > DURATION_LIMITS.cycle.max
+    )
+      return null
+    cycle = raw.cycle
+  }
+  return {
+    focusMs: raw.focusMs,
+    breakMs: raw.breakMs,
+    longBreakMs,
+    cycle,
+    presetName: typeof raw.presetName === 'string' && raw.presetName ? raw.presetName : null,
+  }
+}
 
 export function parseSettings(value: unknown): AppSettings {
   if (typeof value !== 'object' || value === null) return { ...DEFAULT_SETTINGS }
@@ -34,6 +123,10 @@ export function parseSettings(value: unknown): AppSettings {
     activeTaskId:
       typeof raw.activeTaskId === 'string' && raw.activeTaskId ? raw.activeTaskId : null,
     wakeLock: typeof raw.wakeLock === 'boolean' ? raw.wakeLock : DEFAULT_SETTINGS.wakeLock,
+    durations: parseDurations(raw.durations),
+    // Field ada tapi rusak → null (restore jatuh ke Pomodoro); absen =
+    // penyimpanan lama → default Custom.
+    custom: 'custom' in raw ? parseCustom(raw.custom) : DEFAULT_SETTINGS.custom,
   }
 }
 
@@ -47,11 +140,30 @@ interface SettingsState {
   setLastMethod: (method: string) => void
   setActiveTask: (taskId: string | null) => void
   setWakeLock: (wakeLock: boolean) => void
+  /** Setel/hapus override durasi satu metode (null = kembali bawaan). */
+  setDuration: (methodId: EditableMethodId, override: DurationOverride | null) => void
+  /** Ganti konfigurasi Custom (dipakai panel pengaturan dan penerapan preset). */
+  setCustom: (custom: StoredCustom | null) => void
+  /** Pilih metode Custom, mengisi konfigurasi default bila belum ada. */
+  selectCustom: () => void
+  /** Kembalikan seluruh durasi (override + Custom) ke bawaan metode. */
+  resetDurations: () => void
   load: () => Promise<void>
 }
 
 function persistLocal(settings: AppSettings): void {
   write(SETTINGS_KEY, STORAGE_VERSION, settings)
+}
+
+/** Registry metode ikut diperbarui setiap pengaturan berubah (PRD F3). */
+function applyMethods(settings: AppSettings): void {
+  configureMethods({ durations: settings.durations, custom: settings.custom })
+}
+
+/** Atur registry metode dari pengaturan lokal secara sinkron (jalur boot). */
+export function configureMethodsFromLocal(): void {
+  const local = read<unknown>(SETTINGS_KEY, null)
+  applyMethods(parseSettings(local))
 }
 
 async function persistDb(settings: AppSettings): Promise<void> {
@@ -73,6 +185,7 @@ export const useSettings = create<SettingsState>()((set, get) => {
     if (!get().settingsLoaded) changedDuringLoad = true
     const settings = { ...get().settings, ...patch }
     set({ settings })
+    applyMethods(settings)
     persistLocal(settings)
     void persistDb(settings)
   }
@@ -85,13 +198,29 @@ export const useSettings = create<SettingsState>()((set, get) => {
     setLastMethod: (lastMethod) => save({ lastMethod }),
     setActiveTask: (activeTaskId) => save({ activeTaskId }),
     setWakeLock: (wakeLock) => save({ wakeLock }),
+    setDuration: (methodId, override) => {
+      const durations = { ...get().settings.durations }
+      if (override === null) delete durations[methodId]
+      else durations[methodId] = override
+      save({ durations })
+    },
+    setCustom: (custom) => save({ custom }),
+    selectCustom: () =>
+      save({
+        custom: get().settings.custom ?? { ...DEFAULT_CUSTOM, presetName: null },
+        lastMethod: 'custom',
+      }),
+    resetDurations: () => save({ durations: {}, custom: { ...DEFAULT_CUSTOM, presetName: null } }),
     load: async () => {
       changedDuringLoad = false
-      const local = read<AppSettings>(
-        SETTINGS_KEY,
-        { ...DEFAULT_SETTINGS },
-        (v): v is AppSettings => typeof v === 'object' && v !== null,
-      )
+      // localStorage ditulis sinkron oleh save() sebelum antrian IndexedDB —
+      // sumber yang lebih baru, jadi menang bila ada. IndexedDB hanya cadangan
+      // (mencadangkan bila localStorage kosong/tidak utuh).
+      const rawLocal = read<unknown>(SETTINGS_KEY, null)
+      const local =
+        rawLocal !== null && typeof rawLocal === 'object' && !Array.isArray(rawLocal)
+          ? parseSettings(rawLocal)
+          : null
 
       let fromDb: AppSettings | undefined
       try {
@@ -105,9 +234,10 @@ export const useSettings = create<SettingsState>()((set, get) => {
       if (changedDuringLoad) {
         set({ settingsLoaded: true })
       } else {
-        const settings = fromDb ?? parseSettings(local)
-        if (!fromDb) void persistDb(settings)
+        const settings = local ?? fromDb ?? { ...DEFAULT_SETTINGS }
+        void persistDb(settings)
         set({ settings, settingsLoaded: true })
+        applyMethods(settings)
         persistLocal(settings)
       }
 

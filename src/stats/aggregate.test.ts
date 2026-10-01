@@ -169,6 +169,42 @@ describe('groupByMethod', () => {
   })
 })
 
+describe('groupByMethod metode Custom', () => {
+  it('sesi Custom dikelompokkan di bawah "Custom" dengan sublabel nama preset', () => {
+    const sessions = [
+      session({ date: TODAY, method: 'custom', methodLabel: 'Pulih' }),
+      session({ date: TODAY, method: 'custom', methodLabel: 'Pulih' }),
+      session({ date: TODAY, method: 'pomodoro' }),
+    ]
+
+    const groups = groupByMethod(sessions, TODAY, TODAY)
+    const custom = groups.find((group) => group.key === 'custom')
+    expect(custom?.label).toBe('Custom')
+    expect(custom?.sub).toBe('Pulih')
+    expect(custom?.completedCount).toBe(2)
+    expect(groups.find((group) => group.key === 'pomodoro')?.sub).toBeUndefined()
+  })
+
+  it('beberapa preset digabung; sesi tanpa preset tidak menambah sublabel', () => {
+    const sessions = [
+      session({ date: TODAY, method: 'custom', methodLabel: 'Pagi' }),
+      session({ date: TODAY, method: 'custom', methodLabel: 'Malam' }),
+      session({ date: TODAY, method: 'custom' }),
+    ]
+
+    const groups = groupByMethod(sessions, TODAY, TODAY)
+    expect(groups[0]?.label).toBe('Custom')
+    expect(groups[0]?.sub).toBe('Pagi, Malam')
+    expect(groups[0]?.completedCount).toBe(3)
+  })
+
+  it('sesi Custom lama tanpa nama metode tetap terbaca sebagai Custom', () => {
+    const groups = groupByMethod([session({ date: TODAY, method: 'custom' })], TODAY, TODAY)
+    expect(groups[0]?.label).toBe('Custom')
+    expect(groups[0]?.sub).toBeUndefined()
+  })
+})
+
 describe('groupByTask', () => {
   it('judul dari daftar task, task hilang jadi (dihapus), tanpa task dilewati', () => {
     const groups = groupByTask(

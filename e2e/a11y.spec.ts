@@ -101,6 +101,7 @@ const SCREENS: Screen[] = [
   panel('Task'),
   panel('Statistik'),
   panel('Jadwal'),
+  panel('Pengaturan'),
   help,
 ]
 

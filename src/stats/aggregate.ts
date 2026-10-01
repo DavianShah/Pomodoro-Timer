@@ -9,7 +9,7 @@
  * `incompleteCountIn` dan tidak pernah masuk total mana pun.
  */
 import type { SessionRow, TaskRow } from '@/db/db'
-import { methodById } from '@/timer/methods'
+import { methodName } from '@/timer/methods'
 import { localDateKey } from '@/timer/sessionRecord'
 
 export interface Totals {
@@ -28,6 +28,8 @@ export interface GroupStat {
   label: string
   focusMs: number
   completedCount: number
+  /** Sublabel: nama preset Custom; absen untuk metode lain. */
+  sub?: string
 }
 
 export interface StreakStat {
@@ -138,12 +140,24 @@ function groupSessions(
   )
 }
 
-/** Per metode, fokus turun; label = nama metode dari konfigurasi. */
+/** Per metode, fokus turun; label = nama metode, sublabel = preset Custom. */
 export function groupByMethod(sessions: SessionRow[], fromKey: string, toKey: string): GroupStat[] {
-  return groupSessions(sessions, fromKey, toKey, (session) => session.method).map((group) => ({
-    ...group,
-    label: methodById(group.key).name,
-  }))
+  const subOf = new Map<string, string[]>()
+  for (const session of sessions) {
+    if (!session.completed || !within(session.date, fromKey, toKey)) continue
+    if (session.method !== 'custom' || !session.methodLabel) continue
+    const names = subOf.get(session.method) ?? []
+    if (!names.includes(session.methodLabel)) names.push(session.methodLabel)
+    subOf.set(session.method, names)
+  }
+  return groupSessions(sessions, fromKey, toKey, (session) => session.method).map((group) => {
+    const sub = subOf.get(group.key)
+    return {
+      ...group,
+      label: methodName(group.key),
+      ...(sub && sub.length > 0 ? { sub: sub.join(', ') } : {}),
+    }
+  })
 }
 
 /** Per task, fokus turun; judul dari daftar task, task hilang = `(dihapus)`. */

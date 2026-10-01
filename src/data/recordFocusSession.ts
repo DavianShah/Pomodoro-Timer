@@ -6,7 +6,7 @@
 import type { BlockRow, SessionRow } from '@/db/db'
 import { read } from '@/lib/storage'
 import { SETTINGS_KEY } from '@/app/constants'
-import { parseSettings } from '@/state/settings'
+import { parseSettings, type AppSettings } from '@/state/settings'
 import { useTasks } from '@/state/tasks'
 import { useBlocks } from '@/state/blocks'
 import type { TimerState } from '@/timer/engine'
@@ -17,12 +17,16 @@ import { listBlocks, putBlocks } from './blocks'
 import { putFocusSession } from './sessions'
 
 /**
- * Task aktif dibaca dari localStorage saat sesi berakhir — sinkron, tanpa
- * menunggu React: "task yang aktif saat sesi berakhir", termasuk di jalur
- * pemulihan setelah reload (settings.load() mungkin belum selesai).
+ * Task aktif dan preset Custom dibaca dari localStorage saat sesi berakhir —
+ * sinkron, tanpa menunggu React: "yang aktif saat sesi berakhir", termasuk di
+ * jalur pemulihan setelah reload (settings.load() mungkin belum selesai).
  */
+export function readLocalSettings(): AppSettings {
+  return parseSettings(read<unknown>(SETTINGS_KEY, null))
+}
+
 export function readActiveTaskId(): string | null {
-  return parseSettings(read<unknown>(SETTINGS_KEY, null)).activeTaskId
+  return readLocalSettings().activeTaskId
 }
 
 /** Catat ujung sesi fokus. Mengembalikan baris tersimpan, atau null. */
@@ -46,7 +50,15 @@ export async function recordFocusSession(
         taskId = block.taskId ?? taskId
       }
     }
-    session = buildFocusSession({ prev, action, now, taskId, boxing })
+    session = buildFocusSession({
+      prev,
+      action,
+      now,
+      taskId,
+      boxing,
+      methodLabel:
+        prev.method === 'custom' ? (readLocalSettings().custom?.presetName ?? null) : null,
+    })
     if (session === null) return null
     await putFocusSession(session)
     // Blok ikut tercatat: selesai = done, batal (reset) = planned kembali.

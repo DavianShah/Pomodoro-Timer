@@ -35,6 +35,8 @@ export interface FocusEndInput {
   taskId: string | null
   /** Time Boxing: panjang blok (ms) untuk plannedMs; absen = metode lain. */
   boxing?: { plannedMs: number } | null
+  /** Nama preset Custom yang dipakai sesi ini (sublabel statistik); absen = bukan Custom. */
+  methodLabel?: string | null
 }
 
 export function buildFocusSession({
@@ -43,6 +45,7 @@ export function buildFocusSession({
   now,
   taskId,
   boxing,
+  methodLabel,
 }: FocusEndInput): SessionRow | null {
   if (prev.phase !== 'focus') return null
   const method = methodById(prev.method)
@@ -63,6 +66,7 @@ export function buildFocusSession({
       plannedMs: boxing?.plannedMs ?? actualMs,
       actualMs,
       ...(taskId !== null ? { taskId } : {}),
+      ...(methodLabel ? { methodLabel } : {}),
       // Blok batal (reset) bukan selesai; ujung lain = sesi selesai.
       completed: action !== 'reset',
       date: localDateKey(endedAt),
@@ -91,6 +95,7 @@ export function buildFocusSession({
     plannedMs: plannedPhaseMs(prev.method, 'focus'),
     actualMs,
     ...(taskId !== null ? { taskId } : {}),
+    ...(methodLabel ? { methodLabel } : {}),
     // Otomatis selesai = completed. Hitung maju diakhiri "Selesai" (Flowtime)
     // = completed. Lewati/reset hitung mundur di tengah = batal.
     completed: action === 'auto' || (action === 'skip' && method.mode === 'countup'),

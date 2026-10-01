@@ -4,7 +4,8 @@ import MiniWindow from './MiniWindow'
 import TaskPanel from './TaskPanel'
 import StatsPanel from './StatsPanel'
 import JadwalPanel from './JadwalPanel'
-import { METHOD_CONFIGS, MINUTE, methodById, methodDetail } from '@/timer/methods'
+import PengaturanPanel from './PengaturanPanel'
+import { customMethod, METHOD_CONFIGS, MINUTE, methodById, methodDetail } from '@/timer/methods'
 import { blockEndMs, blockEndingAt, formatBlockRange } from '@/timer/blocks'
 import { formatClock } from '@/timer/engine'
 import {
@@ -25,6 +26,7 @@ import { useBlocks } from '@/state/blocks'
 
 export default function TimerScreen() {
   const setLastMethod = useSettings((state) => state.setLastMethod)
+  const selectCustom = useSettings((state) => state.selectCustom)
   const loadTasks = useTasks((state) => state.load)
   const tasksOpen = useTasks((state) => state.open)
   const toggleTasks = useTasks((state) => state.toggleOpen)
@@ -68,6 +70,9 @@ export default function TimerScreen() {
   const statsWasOpen = useRef(statsOpen)
   const jadwalButtonRef = useRef<HTMLButtonElement>(null)
   const jadwalWasOpen = useRef(blocksOpen)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  const settingsWasOpen = useRef(settingsOpen)
 
   useEffect(() => {
     if (tasksWasOpen.current && !tasksOpen && !statsOpen && !blocksOpen)
@@ -87,9 +92,16 @@ export default function TimerScreen() {
     jadwalWasOpen.current = blocksOpen
   }, [blocksOpen, tasksOpen, statsOpen])
 
+  useEffect(() => {
+    if (settingsWasOpen.current && !settingsOpen && !tasksOpen && !statsOpen && !blocksOpen)
+      settingsButtonRef.current?.focus()
+    settingsWasOpen.current = settingsOpen
+  }, [settingsOpen, tasksOpen, statsOpen, blocksOpen])
+
   const toggleTasksPanel = (): void => {
     if (!tasksOpen) {
       setStatsOpen(false)
+      setSettingsOpen(false)
       useBlocks.setState({ open: false })
     }
     toggleTasks()
@@ -102,6 +114,7 @@ export default function TimerScreen() {
     }
     useTasks.setState({ open: false })
     useBlocks.setState({ open: false })
+    setSettingsOpen(false)
     setStatsOpen(true)
   }
 
@@ -109,8 +122,18 @@ export default function TimerScreen() {
     if (!blocksOpen) {
       useTasks.setState({ open: false })
       setStatsOpen(false)
+      setSettingsOpen(false)
     }
     toggleBlocks()
+  }
+
+  const toggleSettings = (): void => {
+    if (!settingsOpen) {
+      useTasks.setState({ open: false })
+      setStatsOpen(false)
+      useBlocks.setState({ open: false })
+    }
+    setSettingsOpen((open) => !open)
   }
 
   useTimerShortcuts(timer, { onMini: mini.toggle, onTasks: toggleTasksPanel })
@@ -260,6 +283,16 @@ export default function TimerScreen() {
           >
             Jadwal
           </button>
+          <button
+            ref={settingsButtonRef}
+            type="button"
+            aria-expanded={settingsOpen}
+            aria-controls="panel-pengaturan"
+            onClick={toggleSettings}
+            className="rounded-md border border-line-strong px-5 py-3 text-sm text-ink-muted transition-colors hover:border-ink-muted"
+          >
+            Pengaturan
+          </button>
         </div>
 
         {isPrompt && (
@@ -319,7 +352,7 @@ export default function TimerScreen() {
 
         <nav aria-label="Pilih metode" className="mt-16 border-t border-line pt-5">
           <ul className="flex flex-wrap justify-center gap-2">
-            {METHOD_CONFIGS.map((item, index) => {
+            {[...METHOD_CONFIGS, customMethod()].map((item, index) => {
               const active = item.id === method.id
               const selectable = timer.methodEditable
               return (
@@ -328,7 +361,7 @@ export default function TimerScreen() {
                     type="button"
                     aria-pressed={active}
                     disabled={!selectable}
-                    onClick={() => setLastMethod(item.id)}
+                    onClick={() => (item.id === 'custom' ? selectCustom() : setLastMethod(item.id))}
                     className={
                       'grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 overflow-hidden rounded-md border px-4 py-2 text-left text-sm text-ink transition-colors ' +
                       (selectable ? '' : 'cursor-not-allowed ') +
@@ -337,7 +370,10 @@ export default function TimerScreen() {
                         : 'border-line-strong hover:border-ink-muted')
                     }
                   >
-                    <span className="angka row-span-2 self-center text-base">{index + 1}</span>
+                    {/* Angka = shortcut 1–5; Custom hanya lewat pemilih ini. */}
+                    <span className="angka row-span-2 self-center text-base">
+                      {index < 5 ? index + 1 : ''}
+                    </span>
                     <span className="font-semibold">{item.name}</span>
                     <span className="text-xs opacity-70">{methodDetail(item)}</span>
                   </button>
@@ -418,6 +454,9 @@ export default function TimerScreen() {
       {tasksOpen && <TaskPanel onClose={toggleTasks} />}
       {statsOpen && <StatsPanel onClose={toggleStats} />}
       {blocksOpen && <JadwalPanel onClose={toggleJadwal} />}
+      {settingsOpen && (
+        <PengaturanPanel running={state.running} onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
   )
 }
