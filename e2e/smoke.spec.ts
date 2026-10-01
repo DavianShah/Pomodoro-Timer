@@ -180,3 +180,74 @@ test('Flowtime hitung maju, Selesai menyiapkan istirahat proporsional', async ({
   )
   expect(accent).toBe(TOKENS.terang.accentBreak)
 })
+
+test('reload saat timer jalan tetap melanjutkan sisa waktu', async ({ page }) => {
+  await page.goto('/')
+  const clock = page.locator('h1')
+  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  await page.waitForTimeout(1_200)
+  await expect(clock).not.toHaveText('25:00')
+
+  await page.reload()
+  // Pulih: masih jalan, sisa waktu berlanjut, bukan kembali ke 25:00.
+  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  await expect(clock).not.toHaveText('25:00')
+  const resumed = await clock.textContent()
+  await page.waitForTimeout(1_200)
+  await expect(clock).not.toHaveText(resumed ?? '')
+})
+
+test('shortcut: spasi mulai/jeda, angka ganti metode, R reset, S lewati', async ({ page }) => {
+  await page.goto('/')
+  const clock = page.locator('h1')
+  // Listener shortcut dipasang di efek React setelah paint pertama.
+  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await page.waitForTimeout(200)
+
+  // Spasi dari body: mulai, lalu jeda (tanpa scroll, satu aksi per tekan).
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+
+  // Angka saat idle: ganti metode; metode tanpa siklus tanpa baris sesi.
+  await page.keyboard.press('3')
+  await expect(page.getByRole('button', { name: /Ultradian/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(page.getByText('Fokus', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Sesi \d/)).toHaveCount(0)
+
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  await page.keyboard.press('r')
+  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await expect(clock).toHaveText('90:00')
+
+  await page.keyboard.press('1')
+  await page.keyboard.press('s')
+  await expect(page.getByText('Istirahat · Sesi 1 dari 4', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Mulai istirahat' })).toBeVisible()
+
+  // Petunjuk shortcut di layar.
+  await page.getByRole('button', { name: '?' }).click()
+  await expect(page.getByText('Spasi · mulai/jeda')).toBeVisible()
+
+  // Spasi saat fokus di tombol: satu aksi (native), tanpa ganda.
+  await page.getByRole('button', { name: 'Mulai istirahat' }).click()
+  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('button', { name: 'Mulai istirahat' })).toBeVisible()
+})
+
+test('judul tab: nama aplikasi saat idle, sisa waktu saat jalan', async ({ page }) => {
+  await page.goto('/')
+  await expect(page).toHaveTitle('Ritme')
+
+  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  await expect(page).toHaveTitle(/^\d+:\d\d · Fokus$/)
+
+  await page.getByRole('button', { name: 'Jeda', exact: true }).click()
+  await expect(page).toHaveTitle('Ritme')
+})

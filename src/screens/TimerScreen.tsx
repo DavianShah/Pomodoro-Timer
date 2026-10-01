@@ -1,16 +1,11 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ThemeToggle from './ThemeToggle'
 import { METHOD_CONFIGS, methodById, methodDetail } from '@/timer/methods'
 import { formatClock, plannedPhaseMs } from '@/timer/engine'
+import { sessionStatus } from '@/timer/labels'
 import { useTimer } from '@/timer/useTimer'
+import { useShortcuts } from '@/timer/useShortcuts'
 import { useSettings } from '@/state/settings'
-import type { Phase } from '@/db/db'
-
-const phaseLabel = (phase: Phase): string => {
-  if (phase === 'focus') return 'Fokus'
-  if (phase === 'break') return 'Istirahat'
-  return 'Istirahat panjang'
-}
 
 export default function TimerScreen() {
   const setLastMethod = useSettings((state) => state.setLastMethod)
@@ -23,6 +18,29 @@ export default function TimerScreen() {
   useEffect(() => {
     document.documentElement.dataset.phase = state.phase
   }, [state.phase])
+
+  const [showHelp, setShowHelp] = useState(false)
+
+  const selectMethod = useCallback(
+    (index: number) => {
+      const config = METHOD_CONFIGS[index]
+      if (!config || config.mode === 'disabled') return
+      if (!timer.methodEditable) return
+      setLastMethod(config.id)
+    },
+    [setLastMethod, timer.methodEditable],
+  )
+
+  useShortcuts({
+    running: state.running,
+    methodEditable: timer.methodEditable,
+    start: timer.start,
+    pause: timer.pause,
+    skip: timer.skip,
+    reset: timer.reset,
+    onMini: null,
+    selectMethod,
+  })
 
   const countupFocus = method.mode === 'countup' && state.phase === 'focus'
   const primary =
@@ -41,11 +59,7 @@ export default function TimerScreen() {
       ? Math.round((1 - Math.min(1, timer.display / planned)) * 100)
       : 0
 
-  const cycle = method.cycle
-  const status = [
-    phaseLabel(state.phase),
-    ...(cycle > 1 ? [`Sesi ${state.cycleIndex} dari ${cycle}`] : []),
-  ].join(' · ')
+  const status = sessionStatus(method, state.cycleIndex, state.phase)
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -107,6 +121,12 @@ export default function TimerScreen() {
           </button>
         </div>
 
+        {timer.soundBlocked && (
+          <p role="status" className="mt-4 w-full text-center text-xs text-ink-muted">
+            Suara alarm belum aktif
+          </p>
+        )}
+
         <nav aria-label="Pilih metode" className="mt-16 border-t border-line pt-5">
           <ul className="flex flex-wrap justify-center gap-2">
             {METHOD_CONFIGS.map((item, index) => {
@@ -139,9 +159,32 @@ export default function TimerScreen() {
       </main>
 
       <footer className="border-t border-line px-6 py-4 sm:px-10">
-        <p className="text-sm text-ink-muted">
-          M1: mesin timer hitung mundur dan Flowtime sudah jalan.
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-ink-muted">
+            M2: notifikasi sesi, shortcut, dan pemulihan state sudah jalan.
+          </p>
+          <button
+            type="button"
+            aria-expanded={showHelp}
+            aria-controls="petunjuk-shortcut"
+            onClick={() => setShowHelp((open) => !open)}
+            className="h-8 w-8 shrink-0 rounded-md border border-line text-sm text-ink-muted transition-colors hover:border-line-strong"
+          >
+            ?
+          </button>
+        </div>
+        {showHelp && (
+          <ul
+            id="petunjuk-shortcut"
+            className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-muted"
+          >
+            <li>Spasi · mulai/jeda</li>
+            <li>R · reset</li>
+            <li>S · lewati</li>
+            <li>M · jendela mini</li>
+            <li>1–5 · ganti metode</li>
+          </ul>
+        )}
       </footer>
     </div>
   )

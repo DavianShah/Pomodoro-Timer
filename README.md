@@ -67,7 +67,7 @@ e2e/                 tes Playwright
 | ----- | -------------------------------------------------------- | ------- |
 | M0    | Repo, Vite, token desain, manifest, deploy               | selesai |
 | M1    | Mesin timer, Worker, semua metode, tes                   | selesai |
-| M2    | Layar timer final, shortcut, notifikasi, pemulihan state | belum   |
+| M2    | Notifikasi sesi, counter sesi, shortcut, pemulihan state | selesai |
 | M3    | Jendela mini dan fallback                                | belum   |
 | M4    | Task list, statistik, streak, tema                       | belum   |
 | M5    | Time Boxing, PWA, polishing, Lighthouse                  | belum   |
