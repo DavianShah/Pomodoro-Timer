@@ -95,7 +95,8 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
             <p className="mt-1.5 text-xs text-ink-muted">Enter untuk menambah.</p>
           </form>
 
-          <ul className="flex-1 overflow-y-auto">
+          {/* Gulir keyboard: wilayah overflow harus bisa difokus tanpa mouse. */}
+          <ul tabIndex={0} className="flex-1 overflow-y-auto">
             {tasks.length === 0 && (
               <li className="px-4 py-3 text-sm text-ink-muted">Belum ada task.</li>
             )}

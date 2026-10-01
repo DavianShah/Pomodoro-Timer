@@ -10,12 +10,15 @@ export interface AppSettings {
   lastMethod: string
   /** Task aktif untuk sesi fokus berikutnya; null = tanpa task (F9). */
   activeTaskId: string | null
+  /** Wake Lock: layar tetap menyala saat timer jalan (F14). */
+  wakeLock: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   lastMethod: DEFAULT_METHOD,
   activeTaskId: null,
+  wakeLock: true,
 }
 
 const isTheme = (value: unknown): value is ThemeChoice =>
@@ -30,6 +33,7 @@ export function parseSettings(value: unknown): AppSettings {
       typeof raw.lastMethod === 'string' && raw.lastMethod ? raw.lastMethod : DEFAULT_METHOD,
     activeTaskId:
       typeof raw.activeTaskId === 'string' && raw.activeTaskId ? raw.activeTaskId : null,
+    wakeLock: typeof raw.wakeLock === 'boolean' ? raw.wakeLock : DEFAULT_SETTINGS.wakeLock,
   }
 }
 
@@ -42,6 +46,7 @@ interface SettingsState {
   setTheme: (theme: ThemeChoice) => void
   setLastMethod: (method: string) => void
   setActiveTask: (taskId: string | null) => void
+  setWakeLock: (wakeLock: boolean) => void
   load: () => Promise<void>
 }
 
@@ -79,6 +84,7 @@ export const useSettings = create<SettingsState>()((set, get) => {
     setTheme: (theme) => save({ theme }),
     setLastMethod: (lastMethod) => save({ lastMethod }),
     setActiveTask: (activeTaskId) => save({ activeTaskId }),
+    setWakeLock: (wakeLock) => save({ wakeLock }),
     load: async () => {
       changedDuringLoad = false
       const local = read<AppSettings>(

@@ -17,6 +17,8 @@ import {
 import { useTimer } from '@/timer/useTimer'
 import { useMiniWindow } from '@/timer/useMiniWindow'
 import { useTimerShortcuts } from '@/timer/useShortcuts'
+import UpdateNotice from '@/pwa/UpdateNotice'
+import { useInstall } from '@/pwa/install'
 import { useTasks } from '@/state/tasks'
 import { useSettings } from '@/state/settings'
 import { useBlocks } from '@/state/blocks'
@@ -32,6 +34,10 @@ export default function TimerScreen() {
   const loadBlocks = useBlocks((state) => state.load)
   const blocks = useBlocks((state) => state.blocks)
   const activeTaskId = useSettings((state) => state.settings.activeTaskId)
+  const wakeLockOn = useSettings((state) => state.settings.wakeLock)
+  const setWakeLock = useSettings((state) => state.setWakeLock)
+  const canInstall = useInstall((state) => state.available)
+  const promptInstall = useInstall((state) => state.prompt)
   const activeTaskTitle = tasks.find((task) => task.id === activeTaskId)?.title
   const timer = useTimer()
   const { state } = timer
@@ -296,6 +302,8 @@ export default function TimerScreen() {
           </div>
         )}
 
+        <UpdateNotice running={state.running} />
+
         {timer.soundBlocked && (
           <p role="status" className="mt-4 w-full text-center text-xs text-ink-muted">
             Suara alarm belum aktif
@@ -341,7 +349,18 @@ export default function TimerScreen() {
 
       <footer className="border-t border-line px-6 py-4 sm:px-10">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <ThemeToggle />
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <ThemeToggle />
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-muted">
+              <input
+                type="checkbox"
+                checked={wakeLockOn}
+                onChange={(event) => setWakeLock(event.target.checked)}
+                className="h-4 w-4 accent-accent"
+              />
+              Jaga layar tetap menyala saat timer jalan
+            </label>
+          </div>
           <div className="flex items-center gap-4">
             <p className="text-sm text-ink-muted">M5a: time boxing jalan.</p>
             <a
@@ -352,6 +371,15 @@ export default function TimerScreen() {
             >
               Lisensi font
             </a>
+            {canInstall && (
+              <button
+                type="button"
+                onClick={promptInstall}
+                className="text-sm text-ink-muted underline underline-offset-2 hover:text-ink"
+              >
+                Pasang aplikasi
+              </button>
+            )}
             <button
               type="button"
               aria-expanded={showHelp}

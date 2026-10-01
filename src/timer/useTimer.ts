@@ -17,6 +17,7 @@ import {
 import { isTimerShape, restoreTimer, saveTimer } from './persist'
 import { methodById } from './methods'
 import { getAlarmState, playAlarm, subscribeAlarm, unlockAlarm } from './alarm'
+import { useWakeLock } from './useWakeLock'
 import { notifyPhaseDone, requestNotifyPermission } from './notify'
 import { documentTitle, phaseLabel } from './labels'
 import { blockEndMs, currentBlock } from '@/timer/blocks'
@@ -105,6 +106,10 @@ export function useTimer(): TimerApi {
     stateRef.current = state
   })
   useEffect(() => subscribeAlarm(() => setAlarmState(getAlarmState())), [])
+
+  // Wake Lock (F14): layar menyala selama timer jalan dan pengaturan hidup.
+  const wakeLockEnabled = useSettings((state) => state.settings.wakeLock)
+  useWakeLock(state.running && wakeLockEnabled)
 
   // Ganti metode hanya saat idle (PRD F3), termasuk saat settings selesai
   // dimuat dari penyimpanan. Timer yang dipulih tidak ditimpa kalau metodenya

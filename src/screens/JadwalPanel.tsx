@@ -86,11 +86,18 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
   const timelineRef = useRef<HTMLDivElement>(null)
   const anchorRef = useRef<number | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
 
   // Penanda "sekarang" bergerak perlahan; detik tidak perlu.
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 30_000)
     return () => window.clearInterval(id)
+  }, [])
+
+  // Fokus jatuh ke panel begitu terbuka (sama seperti panel task/statistik):
+  // Escape di dalam panel menutup dan tombol Jadwal kembali menerima fokus.
+  useEffect(() => {
+    panelRef.current?.focus()
   }, [])
 
   const taskTitle = (id: string | undefined): string | null =>
@@ -189,8 +196,10 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
 
   return (
     <aside
+      ref={panelRef}
       id="panel-jadwal"
       aria-label="Jadwal"
+      tabIndex={-1}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && !formOpen) onClose()
       }}
@@ -319,7 +328,8 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto px-4 py-3">
+          {/* Gulir keyboard: wilayah overflow harus bisa difokus tanpa mouse. */}
+          <div tabIndex={0} className="flex-1 overflow-y-auto px-4 py-3">
             <div
               id="timeline-blok"
               ref={timelineRef}

@@ -87,7 +87,8 @@ export default function StatsPanel({ onClose }: StatsPanelProps) {
       ) : !view.hasAnySession ? (
         <p className="px-4 py-4 text-sm text-ink-muted">Belum ada sesi fokus.</p>
       ) : (
-        <div className="flex-1 overflow-y-auto">
+        // Gulir keyboard: wilayah overflow harus bisa difokus tanpa mouse.
+        <div tabIndex={0} className="flex-1 overflow-y-auto">
           <section className="border-b border-line px-4 py-4">
             <h3 className="label">Hari ini</h3>
             <p className="angka mt-2 text-2xl">{formatFocusMs(view.today.focusMs)}</p>

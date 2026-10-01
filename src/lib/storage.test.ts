@@ -15,14 +15,13 @@ describe('parseSettings', () => {
 
   it('menjaga nilai yang sah dan mengisi sisanya dari default', () => {
     expect(parseSettings({ theme: 'dark', lastMethod: 'flowtime' })).toEqual({
+      ...DEFAULT_SETTINGS,
       theme: 'dark',
       lastMethod: 'flowtime',
-      activeTaskId: null,
     })
     expect(parseSettings({ theme: 'light' })).toEqual({
+      ...DEFAULT_SETTINGS,
       theme: 'light',
-      lastMethod: DEFAULT_SETTINGS.lastMethod,
-      activeTaskId: null,
     })
     expect(parseSettings({ lastMethod: '' })).toEqual(DEFAULT_SETTINGS)
     expect(parseSettings({ activeTaskId: 't9' })).toEqual({

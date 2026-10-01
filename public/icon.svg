@@ -1,9 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ritme">
-  <rect width="64" height="64" rx="8" fill="#F2EEE6" />
-  <g fill="#1B1A17">
-    <rect x="12" y="40" width="10" height="12" />
-    <rect x="27" y="30" width="10" height="22" />
-    <rect x="42" y="20" width="10" height="32" />
+  <!--
+    Sumber ikon Ritme: deret segmen siklus + garis aksen (DESIGN.md).
+    Warna = token di src/styles/tokens.css, tanpa gradien.
+    PNG diturunkan dari berkas ini dengan inkscape (export png, lebar 192 dan 512).
+    Glyph diskalakan ke 75% (translate 8 8 lalu scale 0.75) supaya masuk zona aman
+    maskable (lingkaran 80% di tengah): satu berkas untuk ikon biasa dan maskable.
+  -->
+  <rect width="64" height="64" rx="8" fill="#f2eee6" />
+  <g transform="translate(8 8) scale(0.75)">
+    <rect x="12" y="8" width="40" height="4" fill="#a8441f" />
+    <g fill="#1b1a17">
+      <rect x="12" y="40" width="10" height="12" />
+      <rect x="27" y="30" width="10" height="22" />
+      <rect x="42" y="20" width="10" height="32" />
+    </g>
   </g>
-  <rect x="12" y="8" width="40" height="4" fill="#C0562A" />
 </svg>

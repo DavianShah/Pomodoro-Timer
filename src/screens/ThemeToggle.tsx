@@ -23,6 +23,8 @@ export default function ThemeToggle() {
               key={option.value}
               className={
                 'cursor-pointer rounded-sm border px-2 py-1 text-xs transition-colors ' +
+                // Input radio sr-only: cincin fokus digambar di label-nya.
+                'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ' +
                 (active
                   ? 'border-ink text-ink'
                   : 'border-line-strong text-ink-muted hover:border-ink-muted hover:text-ink')
