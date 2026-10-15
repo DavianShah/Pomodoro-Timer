@@ -3,9 +3,38 @@
  * AudioContext dibuat/di-unlock pada interaksi pertama user (klik Mulai).
  * Kalau browser menolak unlock, state berubah ke 'blocked' dan layar
  * menampilkan indikator kecil (PRD F5) — bukan kegagalan diam-diam.
+ *
+ * Nada alarm adalah konfigurasi data (PRD F13): 'bip', 'lembut', 'rendah'.
+ * Satu AudioContext dipakai bersama suara ambient (`ambient.ts`).
  */
 
 export type AlarmState = 'idle' | 'ready' | 'blocked'
+export type AlarmSound = 'bip' | 'lembut' | 'rendah'
+
+interface ToneConfig {
+  type: OscillatorType
+  frequency: number
+  /** Puncak gain tiap bunyi. */
+  peak: number
+  /** Lama tiap bunyi (detik). */
+  duration: number
+  /** Jarak antar bunyi (detik). */
+  spacing: number
+  count: number
+}
+
+export const TONE_CONFIGS: Record<AlarmSound, ToneConfig> = {
+  bip: { type: 'square', frequency: 880, peak: 0.12, duration: 0.18, spacing: 0.35, count: 3 },
+  lembut: { type: 'sine', frequency: 587.33, peak: 0.09, duration: 0.35, spacing: 0.45, count: 2 },
+  rendah: {
+    type: 'triangle',
+    frequency: 349.23,
+    peak: 0.12,
+    duration: 0.25,
+    spacing: 0.4,
+    count: 3,
+  },
+}
 
 let context: AudioContext | null = null
 let state: AlarmState = 'idle'
@@ -47,25 +76,31 @@ export function unlockAlarm(): void {
   )
 }
 
-function beep(ctx: AudioContext, at: number): void {
+/** AudioContext bersama; null sebelum unlock pertama. */
+export function getAudioContext(): AudioContext | null {
+  return context
+}
+
+function beep(ctx: AudioContext, at: number, tone: ToneConfig): void {
   const oscillator = ctx.createOscillator()
   const gain = ctx.createGain()
-  oscillator.type = 'square'
-  oscillator.frequency.setValueAtTime(880, at)
+  oscillator.type = tone.type
+  oscillator.frequency.setValueAtTime(tone.frequency, at)
   gain.gain.setValueAtTime(0.0001, at)
-  gain.gain.exponentialRampToValueAtTime(0.12, at + 0.02)
-  gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.18)
+  gain.gain.exponentialRampToValueAtTime(tone.peak, at + 0.02)
+  gain.gain.exponentialRampToValueAtTime(0.0001, at + tone.duration)
   oscillator.connect(gain)
   gain.connect(ctx.destination)
   oscillator.start(at)
-  oscillator.stop(at + 0.2)
+  oscillator.stop(at + tone.duration + 0.02)
 }
 
-/** Tiga bunyi pendek. Diam kalau audio belum ter-unlock. */
-export function playAlarm(): void {
+/** Bunyi alarm sesuai pilihan nada. Diam kalau audio belum ter-unlock. */
+export function playAlarm(sound: AlarmSound = 'bip'): void {
   if (!context || context.state !== 'running') return
+  const tone = TONE_CONFIGS[sound]
   const start = context.currentTime
-  beep(context, start)
-  beep(context, start + 0.35)
-  beep(context, start + 0.7)
+  for (let index = 0; index < tone.count; index += 1) {
+    beep(context, start + index * tone.spacing, tone)
+  }
 }

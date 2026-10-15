@@ -9,7 +9,14 @@ import {
   type DurationField,
   type EditableMethodId,
 } from '@/timer/methods'
-import { useSettings, type AppSettings, type StoredCustom } from '@/state/settings'
+import {
+  isAlarmSound,
+  isAmbientSound,
+  useSettings,
+  type AppSettings,
+  type StoredCustom,
+} from '@/state/settings'
+import { playAlarm, unlockAlarm } from '@/timer/alarm'
 import {
   listPresets,
   MAX_PRESETS,
@@ -17,6 +24,15 @@ import {
   savePreset,
   type PresetInput,
 } from '@/data/presets'
+import {
+  buildBackup,
+  buildSessionsCsv,
+  downloadFile,
+  exportFileName,
+  restoreBackup,
+} from '@/data/backup'
+import { useTasks } from '@/state/tasks'
+import { useBlocks } from '@/state/blocks'
 import type { PresetRow } from '@/db/db'
 
 interface PengaturanPanelProps {
@@ -119,6 +135,11 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
   const setCustom = useSettings((state) => state.setCustom)
   const setLastMethod = useSettings((state) => state.setLastMethod)
   const resetDurations = useSettings((state) => state.resetDurations)
+  const setAlarmSound = useSettings((state) => state.setAlarmSound)
+  const setAlarmEnabled = useSettings((state) => state.setAlarmEnabled)
+  const setNotifications = useSettings((state) => state.setNotifications)
+  const setAmbient = useSettings((state) => state.setAmbient)
+  const setAmbientVolume = useSettings((state) => state.setAmbientVolume)
 
   const [drafts, setDrafts] = useState<Record<string, string>>(() => makeDrafts(settings))
   const [status, setStatus] = useState('')
@@ -149,6 +170,60 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
     void listPresets()
       .then(setPresets)
       .catch(() => setPresets([]))
+  }
+
+  // Ekspor/impor data (F19). Impor menggabung per id; pengaturan tidak ikut.
+  const [dataBusy, setDataBusy] = useState(false)
+
+  const exportSessions = (): void => {
+    setDataBusy(true)
+    void buildSessionsCsv()
+      .then((csv) => {
+        downloadFile(exportFileName('sesi', 'csv'), csv, 'text/csv;charset=utf-8')
+        setStatus('CSV sesi diunduh')
+      })
+      .catch(() => setStatus('Ekspor gagal'))
+      .finally(() => setDataBusy(false))
+  }
+
+  const exportBackupFile = (): void => {
+    setDataBusy(true)
+    void buildBackup()
+      .then((data) => {
+        downloadFile(
+          exportFileName('backup', 'json'),
+          JSON.stringify(data, null, 2),
+          'application/json',
+        )
+        setStatus('Backup diunduh')
+      })
+      .catch(() => setStatus('Ekspor gagal'))
+      .finally(() => setDataBusy(false))
+  }
+
+  const importBackupFile = (file: File | undefined): void => {
+    if (file === undefined || dataBusy) return
+    setDataBusy(true)
+    void file
+      .text()
+      .then((text) => restoreBackup(text))
+      .then((result) => {
+        if (!result.ok) {
+          setStatus(result.error)
+          return
+        }
+        const { counts } = result
+        setStatus(
+          `Dipulihkan: ${counts.sessions} sesi, ${counts.tasks} task` +
+            (counts.skipped > 0 ? ` · dilewati ${counts.skipped}` : ''),
+        )
+        // Store yang menampilkan data ikut segar; statistik membaca saat dibuka.
+        void useTasks.getState().refresh()
+        void useBlocks.getState().refresh()
+        refreshPresets()
+      })
+      .catch(() => setStatus('Berkas tidak bisa dibaca'))
+      .finally(() => setDataBusy(false))
   }
 
   const applyCustom = (patch: Partial<StoredCustom>): void => {
@@ -471,6 +546,140 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
               </ul>
             </>
           )}
+        </section>
+
+        <section className="border-b border-line py-3">
+          <h3 className="label">Suara</h3>
+          <label className="flex items-center justify-between gap-3 py-1.5 text-sm text-ink-muted">
+            <span>Alarm saat sesi selesai</span>
+            <input
+              type="checkbox"
+              checked={settings.alarmEnabled}
+              onChange={(event) => setAlarmEnabled(event.target.checked)}
+              className="h-4 w-4 accent-accent"
+            />
+          </label>
+          <div className="flex items-center justify-between gap-3 py-1.5">
+            <label htmlFor="suara-alarm" className="text-sm text-ink-muted">
+              Nada alarm
+            </label>
+            <div className="flex items-center gap-2">
+              <select
+                id="suara-alarm"
+                value={settings.alarmSound}
+                disabled={!settings.alarmEnabled}
+                onChange={(event) => {
+                  if (isAlarmSound(event.target.value)) setAlarmSound(event.target.value)
+                }}
+                className="rounded-md border border-line-strong bg-paper px-2 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="bip">Bip</option>
+                <option value="lembut">Lembut</option>
+                <option value="rendah">Rendah</option>
+              </select>
+              <button
+                type="button"
+                disabled={!settings.alarmEnabled}
+                onClick={() => {
+                  unlockAlarm()
+                  playAlarm(settings.alarmSound)
+                }}
+                className="rounded-md border border-line-strong px-2 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Dengar
+              </button>
+            </div>
+          </div>
+          <label className="flex items-center justify-between gap-3 py-1.5 text-sm text-ink-muted">
+            <span>Notifikasi browser</span>
+            <input
+              type="checkbox"
+              checked={settings.notifications}
+              onChange={(event) => setNotifications(event.target.checked)}
+              className="h-4 w-4 accent-accent"
+            />
+          </label>
+          <div className="flex items-center justify-between gap-3 py-1.5">
+            <label htmlFor="suara-ambient" className="text-sm text-ink-muted">
+              Ambient
+            </label>
+            <select
+              id="suara-ambient"
+              value={settings.ambient}
+              onChange={(event) => {
+                if (isAmbientSound(event.target.value)) setAmbient(event.target.value)
+              }}
+              className="rounded-md border border-line-strong bg-paper px-2 py-1.5 text-sm text-ink"
+            >
+              <option value="off">Mati</option>
+              <option value="hujan">Hujan</option>
+              <option value="kipas">Kipas</option>
+              <option value="brown">Brown noise</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-between gap-3 py-1.5">
+            <label htmlFor="suara-volume" className="text-sm text-ink-muted">
+              Volume ambient
+            </label>
+            <input
+              id="suara-volume"
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round(settings.ambientVolume * 100)}
+              disabled={settings.ambient === 'off'}
+              onChange={(event) => setAmbientVolume(Number(event.target.value) / 100)}
+              className="w-32 accent-accent disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </div>
+          <p className="pt-1 text-xs text-ink-muted">
+            Ambient berbunyi selama timer berjalan. Semua suara disintesis di perangkat.
+          </p>
+        </section>
+
+        <section className="border-b border-line py-3">
+          <h3 className="label">Data</h3>
+          {!databaseAvailable ? (
+            <p className="py-2 text-sm text-ink-muted">
+              Data nonaktif — penyimpanan browser tidak tersedia.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2 py-2">
+              <button
+                type="button"
+                disabled={dataBusy}
+                onClick={exportSessions}
+                className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Ekspor sesi (CSV)
+              </button>
+              <button
+                type="button"
+                disabled={dataBusy}
+                onClick={exportBackupFile}
+                className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Ekspor backup
+              </button>
+              <label className="cursor-pointer rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+                Pulihkan backup
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  disabled={dataBusy}
+                  onChange={(event) => {
+                    importBackupFile(event.target.files?.[0])
+                    event.target.value = ''
+                  }}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+          )}
+          <p className="pt-1 text-xs text-ink-muted">
+            Backup memuat task, sesi, blok, dan preset. Impor menggabung, tidak menghapus.
+          </p>
         </section>
 
         <div className="border-t border-line pt-3">

@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { DEFAULT_METHOD, SETTINGS_KEY, STORAGE_VERSION } from '@/app/constants'
 import { db } from '@/db/db'
 import { read, storageWorks, write } from '@/lib/storage'
+import type { AlarmSound } from '@/timer/alarm'
+import { DEFAULT_AMBIENT_VOLUME, type AmbientSound } from '@/timer/ambient'
 import {
   configureMethods,
   DEFAULT_CUSTOM,
@@ -27,6 +29,16 @@ export interface AppSettings {
   activeTaskId: string | null
   /** Wake Lock: layar tetap menyala saat timer jalan (F14). */
   wakeLock: boolean
+  /** Nada alarm sesi selesai (F13). */
+  alarmSound: AlarmSound
+  /** Alarm berbunyi saat sesi selesai (F13). */
+  alarmEnabled: boolean
+  /** Notifikasi browser saat sesi selesai (F5/F13). */
+  notifications: boolean
+  /** Suara ambient saat timer berjalan (F13). */
+  ambient: AmbientSound
+  /** Volume ambient 0–1. */
+  ambientVolume: number
   /** Override durasi per metode (F3); absen = bawaan metode. */
   durations: Partial<Record<EditableMethodId, DurationOverride>>
   /** Konfigurasi metode Custom; null = korup/tidak ada — engine jatuh ke Pomodoro. */
@@ -38,9 +50,23 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastMethod: DEFAULT_METHOD,
   activeTaskId: null,
   wakeLock: true,
+  alarmSound: 'bip',
+  alarmEnabled: true,
+  notifications: true,
+  ambient: 'off',
+  ambientVolume: DEFAULT_AMBIENT_VOLUME,
   durations: {},
   custom: { ...DEFAULT_CUSTOM, presetName: null },
 }
+
+const ALARM_SOUNDS: readonly AlarmSound[] = ['bip', 'lembut', 'rendah']
+const AMBIENT_SOUNDS: readonly AmbientSound[] = ['off', 'hujan', 'kipas', 'brown']
+
+export const isAlarmSound = (value: unknown): value is AlarmSound =>
+  typeof value === 'string' && (ALARM_SOUNDS as readonly string[]).includes(value)
+
+export const isAmbientSound = (value: unknown): value is AmbientSound =>
+  typeof value === 'string' && (AMBIENT_SOUNDS as readonly string[]).includes(value)
 
 const isTheme = (value: unknown): value is ThemeChoice =>
   value === 'system' || value === 'light' || value === 'dark'
@@ -123,6 +149,16 @@ export function parseSettings(value: unknown): AppSettings {
     activeTaskId:
       typeof raw.activeTaskId === 'string' && raw.activeTaskId ? raw.activeTaskId : null,
     wakeLock: typeof raw.wakeLock === 'boolean' ? raw.wakeLock : DEFAULT_SETTINGS.wakeLock,
+    alarmSound: isAlarmSound(raw.alarmSound) ? raw.alarmSound : DEFAULT_SETTINGS.alarmSound,
+    alarmEnabled:
+      typeof raw.alarmEnabled === 'boolean' ? raw.alarmEnabled : DEFAULT_SETTINGS.alarmEnabled,
+    notifications:
+      typeof raw.notifications === 'boolean' ? raw.notifications : DEFAULT_SETTINGS.notifications,
+    ambient: isAmbientSound(raw.ambient) ? raw.ambient : DEFAULT_SETTINGS.ambient,
+    ambientVolume:
+      isFiniteNumber(raw.ambientVolume) && raw.ambientVolume >= 0 && raw.ambientVolume <= 1
+        ? raw.ambientVolume
+        : DEFAULT_SETTINGS.ambientVolume,
     durations: parseDurations(raw.durations),
     // Field ada tapi rusak → null (restore jatuh ke Pomodoro); absen =
     // penyimpanan lama → default Custom.
@@ -140,6 +176,11 @@ interface SettingsState {
   setLastMethod: (method: string) => void
   setActiveTask: (taskId: string | null) => void
   setWakeLock: (wakeLock: boolean) => void
+  setAlarmSound: (alarmSound: AlarmSound) => void
+  setAlarmEnabled: (alarmEnabled: boolean) => void
+  setNotifications: (notifications: boolean) => void
+  setAmbient: (ambient: AmbientSound) => void
+  setAmbientVolume: (ambientVolume: number) => void
   /** Setel/hapus override durasi satu metode (null = kembali bawaan). */
   setDuration: (methodId: EditableMethodId, override: DurationOverride | null) => void
   /** Ganti konfigurasi Custom (dipakai panel pengaturan dan penerapan preset). */
@@ -198,6 +239,12 @@ export const useSettings = create<SettingsState>()((set, get) => {
     setLastMethod: (lastMethod) => save({ lastMethod }),
     setActiveTask: (activeTaskId) => save({ activeTaskId }),
     setWakeLock: (wakeLock) => save({ wakeLock }),
+    setAlarmSound: (alarmSound) => save({ alarmSound }),
+    setAlarmEnabled: (alarmEnabled) => save({ alarmEnabled }),
+    setNotifications: (notifications) => save({ notifications }),
+    setAmbient: (ambient) => save({ ambient }),
+    setAmbientVolume: (ambientVolume) =>
+      save({ ambientVolume: Math.min(1, Math.max(0, ambientVolume)) }),
     setDuration: (methodId, override) => {
       const durations = { ...get().settings.durations }
       if (override === null) delete durations[methodId]

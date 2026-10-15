@@ -73,7 +73,10 @@ e2e/                 tes Playwright
 | M3    | Jendela mini (Document PiP) dan fallback popup           | selesai |
 | M4a   | Task list (F9), lapisan data Dexie, pencatatan sesi      | selesai |
 | M4b   | Statistik (F10), streak (F11), tema (F12)                | selesai |
-| M5    | Time Boxing, PWA, polishing, Lighthouse                  | belum   |
+| M5a   | Time Boxing (F16)                                        | selesai |
+| M5b   | Wake Lock (F14), PWA/offline (F15), audit aksesibilitas  | selesai |
+| M5c   | Polishing rilis, verifikasi Lighthouse (Perf 96, A11y 100) | selesai |
+| M6    | F13 suara, F19 ekspor backup, nudge Ultradian            | selesai |
 
 ## Uji manual: jendela mini PiP (Chrome/Edge)
 

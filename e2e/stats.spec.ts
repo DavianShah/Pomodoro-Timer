@@ -100,7 +100,11 @@ const seedTasks: SeedTask[] = [
  * (tabel `sessions`/`tasks`, skema v2 dengan indeks `date`), lalu muat ulang
  * supaya store task ikut terbaca. Tidak ada hook test di aplikasi.
  */
-async function seedData(page: Page): Promise<void> {
+async function seedData(
+  page: Page,
+  sessions: SeedSession[] = seedSessions,
+  tasks: SeedTask[] = seedTasks,
+): Promise<void> {
   await page.waitForFunction(() => {
     return new Promise<boolean>((resolve) => {
       const request = indexedDB.open('ritme')
@@ -136,7 +140,7 @@ async function seedData(page: Page): Promise<void> {
           }
         }
       }),
-    { sessions: seedSessions, tasks: seedTasks },
+    { sessions, tasks },
   )
 
   await page.reload()
@@ -230,4 +234,29 @@ test('panel statistik dan panel task saling menutup', async ({ page }) => {
   await statsToggle.click()
   await expect(page.locator('#panel-statistik')).toBeVisible()
   await expect(page.locator('#panel-task')).toBeHidden()
+})
+
+test('nudge Ultradian: jumlah sesi selesai hari ini tampil saat metode dipilih', async ({ page }) => {
+  const ultradianSessions: SeedSession[] = [1, 2, 3, 4].map((n) => ({
+    id: `seed-u${n}`,
+    method: 'ultradian',
+    kind: 'focus',
+    startedAt: Date.now() - (5 - n) * 90 * MIN,
+    endedAt: Date.now() - (4 - n) * 90 * MIN,
+    plannedMs: 90 * MIN,
+    actualMs: 90 * MIN,
+    completed: true,
+    date: TODAY,
+  }))
+
+  await page.goto('/')
+  await seedData(page, ultradianSessions, [])
+
+  await page.getByRole('button', { name: /Ultradian/ }).click()
+  await expect(
+    page.getByText('Ultradian hari ini: 4 sesi · saran maksimal 3–4'),
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: /Pomodoro/ }).first().click()
+  await expect(page.getByText(/Ultradian hari ini/)).toBeHidden()
 })

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SessionRow, TaskRow } from '@/db/db'
 import {
   buildStats,
+  completedCountForMethod,
   computeStreaks,
   dailySeries,
   dayOffsetKey,
@@ -377,5 +378,21 @@ describe('buildStats', () => {
     expect(view.hasAnySession).toBe(true)
     expect(view.week).toEqual({ focusMs: 0, completedCount: 0 })
     expect(view.streak).toEqual({ current: 0, longest: 1 })
+  })
+})
+
+describe('completedCountForMethod', () => {
+  it('hanya metode dan tanggal yang diminta, dan hanya yang selesai', () => {
+    const sessions = [
+      session({ date: TODAY, method: 'ultradian' }),
+      session({ date: TODAY, method: 'ultradian' }),
+      session({ date: TODAY, method: 'ultradian', completed: false }),
+      session({ date: TODAY, method: 'pomodoro' }),
+      session({ date: YESTERDAY, method: 'ultradian' }),
+    ]
+
+    expect(completedCountForMethod(sessions, 'ultradian', TODAY)).toBe(2)
+    expect(completedCountForMethod(sessions, 'pomodoro', TODAY)).toBe(1)
+    expect(completedCountForMethod(sessions, 'flowtime', TODAY)).toBe(0)
   })
 })

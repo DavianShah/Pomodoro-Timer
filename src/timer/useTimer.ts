@@ -17,6 +17,7 @@ import {
 import { isTimerShape, restoreTimer, saveTimer } from './persist'
 import { methodById } from './methods'
 import { getAlarmState, playAlarm, subscribeAlarm, unlockAlarm } from './alarm'
+import { setAmbientVolume, startAmbient, stopAmbient } from './ambient'
 import { useWakeLock } from './useWakeLock'
 import { notifyPhaseDone, requestNotifyPermission } from './notify'
 import { documentTitle, phaseLabel } from './labels'
@@ -114,6 +115,19 @@ export function useTimer(): TimerApi {
   const wakeLockEnabled = useSettings((state) => state.settings.wakeLock)
   useWakeLock(state.running && wakeLockEnabled)
 
+  // Suara ambient (F13): ikut status jalan dan hasil unlock audio. Menunggu
+  // alarmState 'ready' menutup balapan unlock (resume AudioContext asinkron).
+  const ambient = useSettings((state) => state.settings.ambient)
+  const ambientVolume = useSettings((state) => state.settings.ambientVolume)
+  useEffect(() => {
+    if (state.running && ambient !== 'off' && alarmState === 'ready') startAmbient(ambient)
+    else stopAmbient()
+    return stopAmbient
+  }, [state.running, ambient, alarmState])
+  useEffect(() => {
+    setAmbientVolume(ambientVolume)
+  }, [ambientVolume])
+
   // Ganti metode hanya saat idle (PRD F3), termasuk saat settings selesai
   // dimuat dari penyimpanan. Timer yang dipulih tidak ditimpa kalau metodenya
   // sama. Pola "adjust state during render" — bukan efek.
@@ -204,8 +218,9 @@ export function useTimer(): TimerApi {
         const phaseChanged = next.phase !== prev.phase
         const boxingEnd = methodById(prev.method).mode === 'boxing' && prev.running && !next.running
         if (phaseChanged || boxingEnd) {
-          playAlarm()
-          notifyPhaseDone(boxingEnd ? 'Blok' : phaseLabel(prev.phase))
+          const settings = useSettings.getState().settings
+          if (settings.alarmEnabled) playAlarm(settings.alarmSound)
+          if (settings.notifications) notifyPhaseDone(boxingEnd ? 'Blok' : phaseLabel(prev.phase))
           if (document.visibilityState === 'hidden') {
             setCompletionMarker(boxingEnd ? 'Blok selesai' : `${phaseLabel(next.phase)} siap`)
           }
@@ -239,7 +254,7 @@ export function useTimer(): TimerApi {
     apply(startPhase)
     setCompletionMarker(null)
     unlockAlarm()
-    requestNotifyPermission()
+    if (useSettings.getState().settings.notifications) requestNotifyPermission()
     // Time Boxing: blok yang dicover berstatus running.
     if (methodById(stateRef.current.method).mode === 'boxing' && stateRef.current.running) {
       void useBlocks.getState().markRunning(Date.now())
@@ -261,7 +276,7 @@ export function useTimer(): TimerApi {
       apply((current, at) => startPhase(setBoxingEnd(current, endMs), at))
       setCompletionMarker(null)
       unlockAlarm()
-      requestNotifyPermission()
+      if (useSettings.getState().settings.notifications) requestNotifyPermission()
     },
     [apply],
   )

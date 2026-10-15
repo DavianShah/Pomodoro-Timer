@@ -87,6 +87,19 @@ export function totalsIn(sessions: SessionRow[], fromKey: string, toKey: string)
   return { focusMs, completedCount }
 }
 
+/** Jumlah sesi fokus selesai satu metode pada satu hari (nudge Ultradian). */
+export function completedCountForMethod(
+  sessions: SessionRow[],
+  methodId: string,
+  dateKey: string,
+): number {
+  let count = 0
+  for (const session of sessions) {
+    if (session.completed && session.method === methodId && session.date === dateKey) count += 1
+  }
+  return count
+}
+
 export function incompleteCountIn(sessions: SessionRow[], fromKey: string, toKey: string): number {
   let count = 0
   for (const session of sessions) {

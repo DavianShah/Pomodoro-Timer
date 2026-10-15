@@ -23,6 +23,9 @@ import { useInstall } from '@/pwa/install'
 import { useTasks } from '@/state/tasks'
 import { useSettings } from '@/state/settings'
 import { useBlocks } from '@/state/blocks'
+import { loadSessionsThrough } from '@/data/sessions'
+import { completedCountForMethod } from '@/stats/aggregate'
+import { localDateKey } from '@/timer/sessionRecord'
 
 export default function TimerScreen() {
   const setLastMethod = useSettings((state) => state.setLastMethod)
@@ -138,6 +141,26 @@ export default function TimerScreen() {
 
   useTimerShortcuts(timer, { onMini: mini.toggle, onTasks: toggleTasksPanel })
 
+  // Nudge Ultradian (PRD bagian 3): hitung sesi selesai hari ini saat metode
+  // terpilih; di-refresh tiap fase/jalan berubah (sehabis sesi selesai).
+  const [ultradianToday, setUltradianToday] = useState<number | null>(null)
+  useEffect(() => {
+    // Nilai lama aman: baris hanya tampil saat metode Ultradian terpilih.
+    if (method.id !== 'ultradian') return undefined
+    let cancelled = false
+    const today = localDateKey(Date.now())
+    void loadSessionsThrough(today)
+      .then((sessions) => {
+        if (!cancelled) setUltradianToday(completedCountForMethod(sessions, 'ultradian', today))
+      })
+      .catch(() => {
+        if (!cancelled) setUltradianToday(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [method.id, state.running, state.phase])
+
   const [promptBusy, setPromptBusy] = useState(false)
   const countupFocus = method.mode === 'countup' && state.phase === 'focus'
   const label = primaryLabel(state)
@@ -209,6 +232,19 @@ export default function TimerScreen() {
         />
       </div>
 
+      {/* Deret segmen siklus (DESIGN.md): satu segmen per sesi; status teks
+          di bawah jam yang mengumumkan posisinya ke pembaca layar. */}
+      {method.cycle > 1 && (
+        <ol aria-hidden="true" className="flex gap-1 px-6 pt-2 sm:px-10">
+          {Array.from({ length: method.cycle }, (_, index) => (
+            <li
+              key={index}
+              className={`h-[3px] flex-1 ${index < state.cycleIndex ? 'bg-accent' : 'bg-paper-sunken'}`}
+            />
+          ))}
+        </ol>
+      )}
+
       <main className="flex flex-1 flex-col justify-center px-6 pb-10 sm:px-10">
         <h1 className="angka text-center text-[clamp(5.5rem,21vw,17rem)]">
           {formatClock(timer.display)}
@@ -219,6 +255,12 @@ export default function TimerScreen() {
         </p>
         {activeTaskTitle && (
           <p className="mt-1 text-center text-xs text-ink-muted">{activeTaskTitle}</p>
+        )}
+        {method.id === 'ultradian' && ultradianToday !== null && (
+          <p className="mt-1 text-center text-xs text-ink-muted">
+            Ultradian hari ini: <span className="angka">{ultradianToday}</span> sesi · saran
+            maksimal 3–4
+          </p>
         )}
 
         <div
@@ -340,7 +382,7 @@ export default function TimerScreen() {
 
         {timer.soundBlocked && (
           <p role="status" className="mt-4 w-full text-center text-xs text-ink-muted">
-            Suara alarm belum aktif
+            Suara belum aktif
           </p>
         )}
 
@@ -399,7 +441,6 @@ export default function TimerScreen() {
             </label>
           </div>
           <div className="flex items-center gap-4">
-            <p className="text-sm text-ink-muted">M5a: time boxing jalan.</p>
             <a
               href="/LICENSES.md"
               target="_blank"
