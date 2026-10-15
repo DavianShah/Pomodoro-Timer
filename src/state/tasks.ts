@@ -1,8 +1,8 @@
 /**
- * Store state task (F9). Komponen memanggil store ini; store memanggil
- * repository `src/data` — Dexie tidak pernah tersentuh UI. Setiap kegagalan
- * IndexedDB ditandai lewat `databaseAvailable` di settings (satu banner
- * role="status" untuk seluruh aplikasi) dan tidak pernah melempar ke UI.
+ * Task state store (F9). Components call this store; the store calls the
+ * `src/data` repository — Dexie never touches the UI. Every IndexedDB
+ * failure is flagged via `databaseAvailable` in settings (one role="status"
+ * banner for the whole app) and never thrown at the UI.
  */
 import { create } from 'zustand'
 import type { TaskRow } from '@/db/db'
@@ -11,22 +11,22 @@ import { useSettings } from './settings'
 
 interface TasksState {
   tasks: TaskRow[]
-  /** Panel task terbuka. */
+  /** Task panel open. */
   open: boolean
   load: () => Promise<void>
-  /** Muat ulang daftar (dipanggil setelah rekaman sesi agar hitungan segar). */
+  /** Reload the list (called after a session is recorded so counts stay fresh). */
   refresh: () => Promise<void>
   toggleOpen: () => void
   add: (title: string) => Promise<void>
   rename: (id: string, title: string) => Promise<void>
   toggleDone: (id: string) => Promise<void>
   remove: (id: string) => Promise<void>
-  /** Pilih/lepas task aktif untuk sesi fokus. */
+  /** Select/deselect the active task for focus sessions. */
   setActive: (id: string) => void
 }
 
 function markUnavailable(error: unknown): void {
-  console.warn('Ritme: task tidak bisa diakses', error)
+  console.warn('Ritme: tasks unavailable', error)
   useSettings.setState({ databaseAvailable: false })
 }
 

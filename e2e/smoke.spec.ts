@@ -1,7 +1,7 @@
 import { TOKENS } from '../src/styles/tokens.generated'
 import { expect, test } from '@playwright/test'
 
-test('layar timer tampil dengan angka yang tidak bergeser', async ({ page }) => {
+test('timer screen shows a clock whose digits do not shift', async ({ page }) => {
   await page.goto('/')
 
   const clock = page.getByRole('heading', { name: '25:00' })
@@ -20,7 +20,7 @@ test('layar timer tampil dengan angka yang tidak bergeser', async ({ page }) => 
   const accent = await page.evaluate(() =>
     getComputedStyle(document.body).getPropertyValue('--accent').trim(),
   )
-  expect(accent).toBe(TOKENS.terang.accentFocus)
+  expect(accent).toBe(TOKENS.light.accentFocus)
 
   expect(
     await page.evaluate(
@@ -29,7 +29,7 @@ test('layar timer tampil dengan angka yang tidak bergeser', async ({ page }) => 
   ).toBe(false)
 })
 
-test('tidak ada teks yang tumpang tindih atau meluber di layar sempit', async ({ page }) => {
+test('no text overlaps or overflows on a narrow screen', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 })
   await page.goto('/')
 
@@ -62,7 +62,7 @@ test('tidak ada teks yang tumpang tindih atau meluber di layar sempit', async ({
   expect(report.horizontalOverflow).toBe(false)
 })
 
-test('teks tombol metode aktif kontras terhadap latarnya sendiri', async ({ page }) => {
+test('the active method tab text contrasts against its own background', async ({ page }) => {
   await page.goto('/')
 
   const ratio = await page.evaluate((): number => {
@@ -82,8 +82,10 @@ test('teks tombol metode aktif kontras terhadap latarnya sendiri', async ({ page
       return (high + 0.05) / (low + 0.05)
     }
 
-    const active = document.querySelector('nav button[aria-pressed="true"]')
-    if (!(active instanceof HTMLElement)) throw new Error('Tombol metode aktif tidak ditemukan')
+    const active = document
+      .querySelector('[role="radiogroup"] input:checked')
+      ?.closest('label')
+    if (!(active instanceof HTMLElement)) throw new Error('Active method tab not found')
 
     const styles = getComputedStyle(active)
     let node: HTMLElement | null = active
@@ -104,177 +106,171 @@ test('teks tombol metode aktif kontras terhadap latarnya sendiri', async ({ page
   expect(ratio).toBeGreaterThanOrEqual(4.5)
 })
 
-test('ganti metode tersimpan setelah muat ulang, tanpa reload', async ({ page }) => {
+test('method change survives a reload, without a page reload', async ({ page }) => {
   await page.goto('/')
 
-  const flowtime = page.getByRole('button', { name: /Flowtime/ })
-  await flowtime.click()
-  await expect(flowtime).toHaveAttribute('aria-pressed', 'true')
+  const flowtime = page.getByRole('radio', { name: /Flowtime/ })
+  await flowtime.check({ force: true })
+  await expect(flowtime).toBeChecked()
   expect(page.url()).toContain('/')
 
   await page.reload()
-  await expect(page.getByRole('button', { name: /Flowtime/ })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  await expect(page.getByRole('radio', { name: /Flowtime/ })).toBeChecked()
 })
 
-test('pilihan tema gelap dipasang di elemen html', async ({ page }) => {
+test('dark theme choice is set on the html element', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('radio', { name: 'Gelap' }).check({ force: true })
+  await page.getByRole('radio', { name: 'Dark' }).check({ force: true })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
-  await page.getByRole('radio', { name: 'Terang' }).check({ force: true })
+  await page.getByRole('radio', { name: 'Light' }).check({ force: true })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 })
 
-test('lompat ke kontrol timer lewat keyboard', async ({ page }) => {
+test('tab to the timer controls via keyboard', async ({ page }) => {
   await page.goto('/')
   await page.keyboard.press('Tab')
 
-  const skip = page.getByRole('link', { name: 'Lompat ke kontrol timer' })
+  const skip = page.getByRole('link', { name: 'Skip to timer controls' })
   await expect(skip).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.locator('#kontrol-timer')).toBeFocused()
 })
 
-test('timer berjalan dan berhenti saat dijeda', async ({ page }) => {
+test('timer runs and stops when paused', async ({ page }) => {
   await page.goto('/')
   const clock = page.locator('h1')
   await expect(clock).toHaveText('25:00')
 
-  const flowtime = page.getByRole('button', { name: /Flowtime/ })
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  const flowtime = page.getByRole('radio', { name: /Flowtime/ })
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
 
-  // Saat berjalan, metode tidak boleh bisa diganti (PRD F3).
+  // While running, the method cannot be changed (PRD F3).
   await expect(flowtime).toBeDisabled()
   await expect(clock).not.toHaveText('25:00')
   const frozen = await clock.textContent()
 
-  await page.getByRole('button', { name: 'Jeda', exact: true }).click()
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
   await page.waitForTimeout(1_500)
   await expect(clock).toHaveText(frozen ?? '')
   await expect(flowtime).toBeEnabled()
 })
 
-test('Flowtime hitung maju, Selesai menyiapkan istirahat proporsional', async ({ page }) => {
+test('Flowtime counts up, Finish sets up a proportional break', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: /Flowtime/ }).click()
+  await page.getByRole('radio', { name: /Flowtime/ }).check({ force: true })
 
   const clock = page.locator('h1')
-  await expect(clock).toHaveText('0:00')
+  await expect(clock).toHaveText('00:00')
 
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
-  await expect(clock).not.toHaveText('0:00')
-  await expect(page.getByRole('button', { name: 'Selesai', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
+  await expect(clock).not.toHaveText('00:00')
+  await expect(page.getByRole('button', { name: 'Finish', exact: true })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Selesai', exact: true }).click()
-  // Fokus <25 menit → istirahat 5 menit (PRD bagian 3).
-  await expect(page.getByRole('button', { name: 'Mulai istirahat' })).toBeVisible()
-  await expect(clock).toHaveText('5:00')
-  await expect(page.getByText('Istirahat', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Finish', exact: true }).click()
+  // Focus <25 minutes → 5-minute break (PRD section 3).
+  await expect(page.getByRole('button', { name: 'Start break' })).toBeVisible()
+  await expect(clock).toHaveText('05:00')
+  await expect(page.getByText('Break', { exact: true })).toBeVisible()
 
   const accent = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
   )
-  expect(accent).toBe(TOKENS.terang.accentBreak)
+  expect(accent).toBe(TOKENS.light.accentBreak)
 })
 
-test('reload saat timer jalan tetap melanjutkan sisa waktu', async ({ page }) => {
+test('reload while running still resumes the remaining time', async ({ page }) => {
   await page.goto('/')
   const clock = page.locator('h1')
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
   await page.waitForTimeout(1_200)
   await expect(clock).not.toHaveText('25:00')
 
   await page.reload()
-  // Pulih: masih jalan, sisa waktu berlanjut, bukan kembali ke 25:00.
-  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  // Recovered: still running, time keeps counting down, not back to 25:00.
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
   await expect(clock).not.toHaveText('25:00')
   const resumed = await clock.textContent()
   await page.waitForTimeout(1_200)
   await expect(clock).not.toHaveText(resumed ?? '')
 })
 
-test('shortcut: spasi mulai/jeda, angka ganti metode, R reset, S lewati', async ({ page }) => {
+test('shortcuts: space start/pause, digits change method, R reset, S skip', async ({ page }) => {
   await page.goto('/')
   const clock = page.locator('h1')
-  // Listener shortcut dipasang di efek React setelah paint pertama.
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  // Shortcut listeners are attached in a React effect after the first paint.
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
   await page.waitForTimeout(200)
 
-  // Spasi dari body: mulai, lalu jeda (tanpa scroll, satu aksi per tekan).
+  // Space from body: start, then pause (no scroll, one action per press).
   await page.keyboard.press('Space')
-  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
   await page.keyboard.press('Space')
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
 
-  // Angka saat idle: ganti metode; metode tanpa siklus tanpa baris sesi.
+  // Digits while idle: change method; a method without a cycle has no session row.
   await page.keyboard.press('3')
-  await expect(page.getByRole('button', { name: /Ultradian/ })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
-  await expect(page.getByText('Fokus', { exact: true })).toBeVisible()
-  await expect(page.getByText(/Sesi \d/)).toHaveCount(0)
+  await expect(page.getByRole('radio', { name: /Ultradian/ })).toBeChecked()
+  await expect(page.getByText('Focus', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Session \d/)).toHaveCount(0)
 
   await page.keyboard.press('Space')
-  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
   await page.keyboard.press('r')
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
   await expect(clock).toHaveText('90:00')
 
   await page.keyboard.press('1')
   await page.keyboard.press('s')
-  await expect(page.getByText('Istirahat · Sesi 1 dari 4', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Mulai istirahat' })).toBeVisible()
+  await expect(page.getByText('Break · Session 1 of 4', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start break' })).toBeVisible()
 
-  // Petunjuk shortcut di layar.
+  // On-screen shortcut hints.
   await page.getByRole('button', { name: '?' }).click()
-  await expect(page.getByText('Spasi · mulai/jeda')).toBeVisible()
+  await expect(page.getByText('Space · start/pause')).toBeVisible()
 
-  // Spasi saat fokus di tombol aksi utama: satu aksi lewat shortcut
-  // (aktivasi native dicegah), tanpa ganda.
-  await page.getByRole('button', { name: 'Mulai istirahat' }).click()
-  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  // Space while focus is on the main action button: one action via the
+  // shortcut (native activation prevented), no double.
+  await page.getByRole('button', { name: 'Start break' }).click()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
   await page.keyboard.press('Space')
-  await expect(page.getByRole('button', { name: 'Mulai istirahat' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start break' })).toBeVisible()
 })
 
-test('Spasi tanpa blur setelah klik Mulai: jeda tepat satu kali, bukan dua', async ({ page }) => {
+test('Space without blur after clicking Start: pauses exactly once, not twice', async ({ page }) => {
   await page.goto('/')
   const clock = page.locator('h1')
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
 
-  // Fokus tetap di tombol utama yang kini berlabel Jeda — tanpa blur.
+  // Focus stays on the main button now labeled Pause — without blur.
   await page.waitForTimeout(1_100)
   await page.keyboard.press('Space')
 
-  // Kembali jeda, bukan "jeda lalu start lagi" karena aktivasi native.
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toHaveCount(0)
+  // Back to paused, not "pause then start again" via native activation.
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveCount(0)
   const paused = await clock.textContent()
   await page.waitForTimeout(1_300)
   await expect(clock).toHaveText(paused ?? '')
 })
 
-test('judul tab: nama aplikasi saat idle, sisa waktu saat jalan', async ({ page }) => {
+test('tab title: app name while idle, remaining time while running', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveTitle('Ritme')
 
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
-  await expect(page).toHaveTitle(/^\d+:\d\d · Fokus$/)
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
+  await expect(page).toHaveTitle(/^\d+:\d\d · Focus$/)
 
-  await page.getByRole('button', { name: 'Jeda', exact: true }).click()
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
   await expect(page).toHaveTitle('Ritme')
 })
 
-test('jendela mini fallback popup: sinkron, aksi ke halaman utama, reset saat ditutup', async ({
+test('mini window popup fallback: synced, actions reach the main page, reset on close', async ({
   page,
 }) => {
-  // Paksa jalur fallback: PiP asli tidak bisa diuji headless (checklist di README).
+  // Force the fallback path: real PiP cannot be tested headless (checklist in README).
   await page.addInitScript(() => {
     Object.defineProperty(window, 'documentPictureInPicture', {
       value: undefined,
@@ -283,16 +279,16 @@ test('jendela mini fallback popup: sinkron, aksi ke halaman utama, reset saat di
   })
   await page.goto('/')
 
-  const miniButton = page.getByRole('button', { name: 'Jendela mini' })
+  const miniButton = page.getByRole('button', { name: 'Mini window' })
   await expect(miniButton).toHaveAttribute('aria-pressed', 'false')
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
 
   const popupPromise = page.waitForEvent('popup')
   await miniButton.click()
   const popup = await popupPromise
   await expect(miniButton).toHaveAttribute('aria-pressed', 'true')
 
-  // Gaya ikut termuat: stylesheet diklon, angka memakai font mono yang benar.
+  // Styles load along: the stylesheet is cloned, digits use the right mono font.
   await expect
     .poll(() =>
       popup
@@ -305,7 +301,7 @@ test('jendela mini fallback popup: sinkron, aksi ke halaman utama, reset saat di
   const mainTheme = await page.locator('html').getAttribute('data-theme')
   expect(await popup.locator('html').getAttribute('data-theme')).toBe(mainTheme)
 
-  // Waktu yang sama (beda maksimal 1 detik karena baca terpisah).
+  // Same time (max 1 second apart because they are read separately).
   const toSeconds = (text: string | null): number => {
     const [minutes, seconds] = (text ?? '').split(':').map(Number)
     return (minutes ?? 0) * 60 + (seconds ?? 0)
@@ -314,31 +310,31 @@ test('jendela mini fallback popup: sinkron, aksi ke halaman utama, reset saat di
   const popupClock = await popup.locator('.angka').textContent()
   expect(Math.abs(toSeconds(popupClock) - toSeconds(mainClock))).toBeLessThanOrEqual(1)
 
-  // Tombol di popup menjeda timer halaman utama.
-  await popup.getByRole('button', { name: 'Jeda', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  // A popup button pauses the main page timer.
+  await popup.getByRole('button', { name: 'Pause', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
 
-  // Spasi dari body window mini: mulai lagi lewat listener window mini.
+  // Space from the mini window body: starts again via the mini listeners.
   await popup.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
   await popup.keyboard.press('Space')
-  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
 
-  // R di window mini: reset halaman utama ke 25:00.
+  // R in the mini window: resets the main page to 25:00.
   await popup.keyboard.press('r')
   await expect(page.locator('h1')).toHaveText('25:00')
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
 
-  // Ditutup lewat X → state "terbuka" di halaman utama ter-reset.
+  // Closed via X → the main page "open" state resets.
   await popup.close()
   await expect(miniButton).toHaveAttribute('aria-pressed', 'false')
 
-  // Buka lagi setelah ditutup.
+  // Open again after closing.
   const secondPopup = page.waitForEvent('popup')
   await miniButton.click()
   expect(await secondPopup).toBeTruthy()
 })
 
-test('popup diblokir: pesan role=status di layar utama, bukan gagal diam-diam', async ({
+test('popup blocked: role=status message on the main screen, not a silent failure', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -350,9 +346,9 @@ test('popup diblokir: pesan role=status di layar utama, bukan gagal diam-diam', 
   })
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'Jendela mini' }).click()
-  await expect(page.getByText('Popup diblokir — jendela mini tidak terbuka')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Jendela mini' })).toHaveAttribute(
+  await page.getByRole('button', { name: 'Mini window' }).click()
+  await expect(page.getByText('Popup blocked — mini window did not open')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Mini window' })).toHaveAttribute(
     'aria-pressed',
     'false',
   )

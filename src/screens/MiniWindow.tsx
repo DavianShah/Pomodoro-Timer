@@ -19,16 +19,16 @@ interface MiniWindowProps {
   win: Window
   timer: TimerApi
   onMiniToggle: () => void
-  /** Task aktif; tampil di baris fase. */
+  /** Active task; shown in the phase row. */
   taskTitle: string | null
 }
 
 /**
- * Isi jendela mini (PRD bagian 6): waktu dominan, label fase, satu tombol
- * utama, garis progres tipis. Menggunakan createPortal ke document window
- * mini: satu pohon React → state dan aksi tersambung tanpa pengkabelan
- * ekstra, dan portal container di window lain otomatis diikuti listener
- * React. Logika timer tetap di halaman utama.
+ * Mini window contents (PRD section 6): dominant time, phase label, one main
+ * button, a thin progress line. Uses createPortal into the mini window's
+ * document: one React tree → state and actions stay connected with no extra
+ * wiring, and a portal container in another window automatically follows
+ * React listeners. Timer logic stays in the main page.
  */
 export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: MiniWindowProps) {
   const { state } = timer
@@ -38,10 +38,10 @@ export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: Mini
   const trackedBlock =
     method.mode === 'boxing' && state.endTime !== null ? blockEndingAt(blocks, state.endTime) : null
 
-  // Spasi/R harus berfungsi saat fokus di window mini: listener di window ini.
+  // Space/R must work while focus is in the mini window: listeners on this window.
   useTimerShortcuts(timer, { onMini: onMiniToggle, host: win })
 
-  // Aksen per fase dan mode terang/gelap mengikuti halaman utama.
+  // Per-phase accent and light/dark mode follow the main page.
   useEffect(() => {
     const apply = (): void =>
       syncThemeAndPhase(document.documentElement, win.document.documentElement)
@@ -57,12 +57,12 @@ export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: Mini
   const target = win.document.getElementById(MINI_ROOT_ID)
   if (target === null) return null
 
-  const label = isPrompt ? 'Selesai' : primaryLabel(state)
+  const label = isPrompt ? 'Finish' : primaryLabel(state)
   const action = isPrompt
     ? () => timer.setBoxingEnd(null)
-    : label === 'Selesai'
+    : label === 'Finish'
       ? timer.skip
-      : label === 'Jeda'
+      : label === 'Pause'
         ? timer.pause
         : timer.start
   const progress = sessionProgress(
@@ -75,7 +75,7 @@ export default function MiniWindow({ win, timer, onMiniToggle, taskTitle }: Mini
     <div className="flex h-dvh flex-col gap-1 px-4 py-3">
       <div
         role="progressbar"
-        aria-label="Progres sesi"
+        aria-label="Session progress"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={progress}

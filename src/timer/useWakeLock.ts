@@ -1,12 +1,14 @@
 /**
- * Wake Lock (PRD F14): layar tetap menyala selama timer berjalan, kalau
- * pengaturan mengizinkan (default hidup).
+ * Wake Lock (PRD F14): the screen stays on while the timer runs, when the
+ * setting allows it (on by default).
  *
- * - Minta saat timer mulai berjalan, lepas saat jeda/idle/sesi selesai.
- * - Browser melepas sendiri saat tab tersembunyi → minta ulang pada
- *   `visibilitychange` waktu tab terlihat dan timer masih jalan.
- * - Gagal atau tidak didukung = diam, tanpa pesan; timer tidak tergantung
- *   izin ini.
+ * - Requested when the timer starts running, released on pause/idle/session
+ *   finish.
+ * - The browser releases it on its own while the tab is hidden → re-request
+ *   on `visibilitychange` when the tab becomes visible and the timer still
+ *   runs.
+ * - Failure or lack of support = silent, no message; the timer does not
+ *   depend on this permission.
  */
 import { useEffect, useRef } from 'react'
 
@@ -32,18 +34,18 @@ export function useWakeLock(active: boolean): void {
           void lock.release().catch(noop)
           return
         }
-        // Dua permintaan berdekatan bisa sama-sama selesai: yang lama dilepas.
+        // Two nearby requests can both resolve: the older one is released.
         const previous = currentLock()
         lockRef.current = lock
         if (previous !== null) void previous.release().catch(noop)
       } catch {
-        // Izin ditolak atau permintaan gagal: senyap (PRD F14).
+        // Permission denied or request failed: silent (PRD F14).
       }
     }
 
     const onVisibility = (): void => {
       if (document.visibilityState !== 'visible') return
-      // Tab tersembunyi = browser sudah melepas; penanda lama dibuang dulu.
+      // Hidden tab = the browser already released it; drop the stale marker first.
       const stale = lockRef.current
       lockRef.current = null
       if (stale !== null) void stale.release().catch(noop)

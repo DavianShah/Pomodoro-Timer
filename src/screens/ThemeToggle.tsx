@@ -2,9 +2,9 @@ import { useId } from 'react'
 import { useSettings, type ThemeChoice } from '@/state/settings'
 
 const OPTIONS: ReadonlyArray<{ value: ThemeChoice; label: string }> = [
-  { value: 'system', label: 'Sistem' },
-  { value: 'light', label: 'Terang' },
-  { value: 'dark', label: 'Gelap' },
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
 ]
 
 export default function ThemeToggle() {
@@ -14,7 +14,7 @@ export default function ThemeToggle() {
 
   return (
     <fieldset className="flex items-center gap-3 border-0 p-0">
-      <legend className="label float-left mr-3">Tema</legend>
+      <legend className="label float-left mr-3">Theme</legend>
       <div className="flex gap-1">
         {OPTIONS.map((option) => {
           const active = option.value === theme
@@ -22,12 +22,12 @@ export default function ThemeToggle() {
             <label
               key={option.value}
               className={
-                'cursor-pointer rounded-sm border px-2 py-1 text-xs transition-colors ' +
-                // Input radio sr-only: cincin fokus digambar di label-nya.
+                'cursor-pointer border-b-2 px-2 pb-1 text-xs transition-colors ' +
+                // Radio input is sr-only: the focus ring is drawn on its label.
                 'has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ' +
                 (active
-                  ? 'border-ink text-ink'
-                  : 'border-line-strong text-ink-muted hover:border-ink-muted hover:text-ink')
+                  ? 'border-ink font-semibold text-ink'
+                  : 'border-transparent text-ink-muted hover:border-line-strong hover:text-ink')
               }
             >
               <input

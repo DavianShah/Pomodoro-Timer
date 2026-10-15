@@ -36,23 +36,23 @@ import { useBlocks } from '@/state/blocks'
 import type { PresetRow } from '@/db/db'
 
 interface PengaturanPanelProps {
-  /** Durasi hanya boleh diubah saat timer tidak berjalan (PRD F3). */
+  /** Durations may only change while the timer is not running (PRD F3). */
   running: boolean
   onClose: () => void
 }
 
 const FIELD_LABEL: Record<DurationField, string> = {
-  focus: 'Fokus',
-  break: 'Istirahat',
-  longBreak: 'Istirahat panjang',
-  cycle: 'Siklus',
+  focus: 'Focus',
+  break: 'Break',
+  longBreak: 'Long break',
+  cycle: 'Cycle',
 }
 
 const FIELD_UNIT: Record<DurationField, string> = {
-  focus: 'menit',
-  break: 'menit',
-  longBreak: 'menit',
-  cycle: 'sesi',
+  focus: 'min',
+  break: 'min',
+  longBreak: 'min',
+  cycle: 'sessions',
 }
 
 const inputId = (scope: string, field: DurationField): string => `durasi-${scope}-${field}`
@@ -61,12 +61,12 @@ function minutes(value: number): string {
   return String(value / MINUTE)
 }
 
-/** Nilai efektif Custom (penyimpanan atau default) untuk input. */
+/** Effective Custom values (stored or default) for the inputs. */
 function customOf(settings: AppSettings): StoredCustom {
   return settings.custom ?? { ...DEFAULT_CUSTOM, presetName: null }
 }
 
-/** Salinan draft (menit, string) dari nilai efektif tiap field. */
+/** Draft copies (minutes, as strings) from each field's effective value. */
 function makeDrafts(settings: AppSettings): Record<string, string> {
   const drafts: Record<string, string> = {}
   for (const id of EDITABLE_METHOD_IDS) {
@@ -123,9 +123,9 @@ function DurationRow({ scope, field, value, disabled = false, onChange }: Durati
 }
 
 /**
- * Panel pengaturan durasi (PRD F3): override per metode, metode Custom
- * dengan preset bernama. Input angka berlabel — bukan slider; nilai di luar
- * rentang ditolak dengan pesan `role="status"`, tidak dibulatkan diam-diam.
+ * Duration settings panel (PRD F3): per-method overrides, the Custom method
+ * with named presets. Labeled number inputs — not sliders; out-of-range
+ * values are rejected with a `role="status"` message, never silently rounded.
  */
 export default function PengaturanPanel({ running, onClose }: PengaturanPanelProps) {
   const settings = useSettings((state) => state.settings)
@@ -151,8 +151,8 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
     scrollRef.current?.focus()
   }, [])
 
-  // Pengaturan selesai dimuat setelah panel terbuka → samakan draft.
-  // Pola "adjust state during render" (bukan efek), sama seperti useTimer.
+  // Settings finish loading after the panel opens → sync the drafts.
+  // "Adjust state during render" pattern (not an effect), same as useTimer.
   const [prevLoaded, setPrevLoaded] = useState(settingsLoaded)
   if (settingsLoaded !== prevLoaded) {
     setPrevLoaded(settingsLoaded)
@@ -172,17 +172,17 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
       .catch(() => setPresets([]))
   }
 
-  // Ekspor/impor data (F19). Impor menggabung per id; pengaturan tidak ikut.
+  // Export/import data (F19). Import merges per id; settings are not included.
   const [dataBusy, setDataBusy] = useState(false)
 
   const exportSessions = (): void => {
     setDataBusy(true)
     void buildSessionsCsv()
       .then((csv) => {
-        downloadFile(exportFileName('sesi', 'csv'), csv, 'text/csv;charset=utf-8')
-        setStatus('CSV sesi diunduh')
+        downloadFile(exportFileName('sessions', 'csv'), csv, 'text/csv;charset=utf-8')
+        setStatus('Session CSV downloaded')
       })
-      .catch(() => setStatus('Ekspor gagal'))
+      .catch(() => setStatus('Export failed'))
       .finally(() => setDataBusy(false))
   }
 
@@ -195,9 +195,9 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
           JSON.stringify(data, null, 2),
           'application/json',
         )
-        setStatus('Backup diunduh')
+        setStatus('Backup downloaded')
       })
-      .catch(() => setStatus('Ekspor gagal'))
+      .catch(() => setStatus('Export failed'))
       .finally(() => setDataBusy(false))
   }
 
@@ -214,15 +214,15 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
         }
         const { counts } = result
         setStatus(
-          `Dipulihkan: ${counts.sessions} sesi, ${counts.tasks} task` +
-            (counts.skipped > 0 ? ` · dilewati ${counts.skipped}` : ''),
+          `Restored: ${counts.sessions} sessions, ${counts.tasks} tasks` +
+            (counts.skipped > 0 ? ` · skipped ${counts.skipped}` : ''),
         )
-        // Store yang menampilkan data ikut segar; statistik membaca saat dibuka.
+        // Stores showing data refresh too; stats read when opened.
         void useTasks.getState().refresh()
         void useBlocks.getState().refresh()
         refreshPresets()
       })
-      .catch(() => setStatus('Berkas tidak bisa dibaca'))
+      .catch(() => setStatus('File could not be read'))
       .finally(() => setDataBusy(false))
   }
 
@@ -230,7 +230,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
     setCustom({ ...customOf(useSettings.getState().settings), ...patch, presetName: null })
   }
 
-  /** Terapkan nilai valid ke pengaturan; di luar rentang → tolak + pesan. */
+  /** Apply a valid value to settings; out of range → reject + message. */
   const updateField = (scope: string, field: DurationField, raw: string): void => {
     const id = inputId(scope, field)
     setDrafts((prev) => ({ ...prev, [id]: raw }))
@@ -241,14 +241,14 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
     }
     const value = Number(trimmed)
     if (!Number.isInteger(value)) {
-      setStatus('Harus bilangan bulat')
+      setStatus('Must be a whole number')
       return
     }
-    // Input menit; inDurationRange bekerja dalam ms (siklus tetap satuan sesi).
+    // Input is in minutes; inDurationRange works in ms (cycle stays in sessions).
     const amount = field === 'cycle' ? value : value * MINUTE
     if (!inDurationRange(field, amount)) {
       const { min, max } = DURATION_LIMITS[field]
-      setStatus(`${FIELD_LABEL[field]} harus ${min}–${max} ${FIELD_UNIT[field]}`)
+      setStatus(`${FIELD_LABEL[field]} must be ${min}–${max} ${FIELD_UNIT[field]}`)
       return
     }
     setStatus('')
@@ -279,7 +279,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
     event.preventDefault()
     const name = presetName.trim()
     if (name === '') {
-      setStatus('Nama preset diisi')
+      setStatus('Preset name is required')
       return
     }
     const custom = customOf(useSettings.getState().settings)
@@ -292,10 +292,10 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
     }
     void savePreset(input).then((result) => {
       if (!result.ok) {
-        setStatus(`Maksimal ${MAX_PRESETS} preset`)
+        setStatus(`Maximum ${MAX_PRESETS} presets`)
         return
       }
-      setStatus(`Preset "${name}" tersimpan`)
+      setStatus(`Preset "${name}" saved`)
       setPresetName('')
       setCustom({ ...custom, presetName: name })
       refreshPresets()
@@ -313,7 +313,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
     })
     setLastMethod('custom')
     setDrafts(makeDrafts(useSettings.getState().settings))
-    setStatus(`Preset "${preset.name}" dipakai`)
+    setStatus(`Preset "${preset.name}" applied`)
   }
 
   const deletePreset = (preset: PresetRow): void => {
@@ -322,7 +322,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
       if (custom !== null && custom.presetName === preset.name) {
         setCustom({ ...custom, presetName: null })
       }
-      setStatus(`Preset "${preset.name}" dihapus`)
+      setStatus(`Preset "${preset.name}" deleted`)
       refreshPresets()
     })
   }
@@ -330,7 +330,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
   const resetAll = (): void => {
     resetDurations()
     setDrafts(makeDrafts(useSettings.getState().settings))
-    setStatus('Durasi kembali ke bawaan')
+    setStatus('Durations reset to defaults')
   }
 
   const pomodoro = methodById('pomodoro')
@@ -339,20 +339,20 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
   return (
     <aside
       id="panel-pengaturan"
-      aria-label="Pengaturan"
+      aria-label="Settings"
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose()
       }}
       className="fixed inset-y-0 right-0 z-40 flex w-80 max-w-full flex-col border-l border-line bg-paper-raised"
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="label">Pengaturan</h2>
+        <h2 className="label">Settings</h2>
         <button
           type="button"
           onClick={onClose}
           className="rounded-md border border-line-strong px-3 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
         >
-          Tutup
+          Close
         </button>
       </div>
 
@@ -360,10 +360,10 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
         {status}
       </p>
 
-      {/* Gulir keyboard: wilayah overflow harus bisa difokus tanpa mouse. */}
+      {/* Keyboard scrolling: an overflow region must be focusable without a mouse. */}
       <div ref={scrollRef} tabIndex={0} className="flex-1 overflow-y-auto px-4 pb-4">
         {running && (
-          <p className="mb-2 text-xs text-ink-muted">Durasi bisa diubah saat timer berhenti.</p>
+          <p className="mb-2 text-xs text-ink-muted">Durations can be changed while the timer is stopped.</p>
         )}
 
         <section className="border-b border-line py-3">
@@ -389,7 +389,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
             disabled={running}
             onChange={(raw) => updateField('pomodoro', 'longBreak', raw)}
           />
-          <p className="pt-1 text-xs text-ink-muted">Siklus {pomodoro.cycle} sesi.</p>
+          <p className="pt-1 text-xs text-ink-muted">Cycle of {pomodoro.cycle} sessions.</p>
         </section>
 
         <section className="border-b border-line py-3">
@@ -445,7 +445,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
             onChange={(raw) => updateField('custom', 'break', raw)}
           />
           <label className="flex items-center justify-between gap-3 py-1.5 text-sm text-ink-muted">
-            <span>Istirahat panjang</span>
+            <span>Long break</span>
             <input
               id="custom-long-toggle"
               type="checkbox"
@@ -465,7 +465,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
             onChange={(raw) => updateField('custom', 'longBreak', raw)}
           />
           <label className="flex items-center justify-between gap-3 py-1.5 text-sm text-ink-muted">
-            <span>Siklus</span>
+            <span>Cycle</span>
             <input
               id="custom-cycle-toggle"
               type="checkbox"
@@ -488,20 +488,20 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
           <h3 className="label">Preset</h3>
           {!databaseAvailable ? (
             <p className="py-2 text-sm text-ink-muted">
-              Preset nonaktif — penyimpanan browser tidak tersedia.
+              Presets disabled — browser storage is unavailable.
             </p>
           ) : (
             <>
               <form onSubmit={submitPreset} className="flex items-end gap-2 py-2">
                 <div className="min-w-0 flex-1">
                   <label htmlFor="preset-nama" className="block text-sm text-ink-muted">
-                    Nama preset
+                    Preset name
                   </label>
                   <input
                     id="preset-nama"
                     value={presetName}
                     onChange={(event) => setPresetName(event.target.value)}
-                    placeholder="mis. Pagi"
+                    placeholder="e.g. Morning"
                     autoComplete="off"
                     className="mt-1 w-full rounded-md border border-line-strong bg-paper px-2 py-1.5 text-sm text-ink placeholder:text-ink-muted"
                   />
@@ -511,19 +511,19 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
                   disabled={running}
                   className="rounded-md border border-line-strong px-3 py-2 text-xs text-ink transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Simpan preset
+                  Save preset
                 </button>
               </form>
               <ul className="divide-y divide-line">
                 {presets.length === 0 && (
-                  <li className="py-2 text-sm text-ink-muted">Belum ada preset.</li>
+                  <li className="py-2 text-sm text-ink-muted">No presets yet.</li>
                 )}
                 {presets.map((preset) => (
                   <li key={preset.id} className="flex items-center gap-2 py-2">
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-ink">{preset.name}</span>
                       <span className="angka block text-xs text-ink-muted">
-                        {minutes(preset.focusMs)}/{minutes(preset.breakMs)} menit
+                        {minutes(preset.focusMs)}/{minutes(preset.breakMs)} min
                       </span>
                     </span>
                     <button
@@ -532,14 +532,14 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
                       onClick={() => choosePreset(preset)}
                       className="rounded-md border border-line-strong px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Pakai
+                      Use
                     </button>
                     <button
                       type="button"
                       onClick={() => deletePreset(preset)}
                       className="rounded-md border border-line-strong px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                     >
-                      Hapus
+                      Delete
                     </button>
                   </li>
                 ))}
@@ -549,9 +549,9 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
         </section>
 
         <section className="border-b border-line py-3">
-          <h3 className="label">Suara</h3>
+          <h3 className="label">Sound</h3>
           <label className="flex items-center justify-between gap-3 py-1.5 text-sm text-ink-muted">
-            <span>Alarm saat sesi selesai</span>
+            <span>Alarm when a session finishes</span>
             <input
               type="checkbox"
               checked={settings.alarmEnabled}
@@ -561,7 +561,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
           </label>
           <div className="flex items-center justify-between gap-3 py-1.5">
             <label htmlFor="suara-alarm" className="text-sm text-ink-muted">
-              Nada alarm
+              Alarm tone
             </label>
             <div className="flex items-center gap-2">
               <select
@@ -573,9 +573,9 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
                 }}
                 className="rounded-md border border-line-strong bg-paper px-2 py-1.5 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <option value="bip">Bip</option>
-                <option value="lembut">Lembut</option>
-                <option value="rendah">Rendah</option>
+                <option value="beep">Beep</option>
+                <option value="soft">Soft</option>
+                <option value="low">Low</option>
               </select>
               <button
                 type="button"
@@ -586,12 +586,12 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
                 }}
                 className="rounded-md border border-line-strong px-2 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Dengar
+                Preview
               </button>
             </div>
           </div>
           <label className="flex items-center justify-between gap-3 py-1.5 text-sm text-ink-muted">
-            <span>Notifikasi browser</span>
+            <span>Browser notifications</span>
             <input
               type="checkbox"
               checked={settings.notifications}
@@ -611,15 +611,15 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
               }}
               className="rounded-md border border-line-strong bg-paper px-2 py-1.5 text-sm text-ink"
             >
-              <option value="off">Mati</option>
-              <option value="hujan">Hujan</option>
-              <option value="kipas">Kipas</option>
+              <option value="off">Off</option>
+              <option value="rain">Rain</option>
+              <option value="fan">Fan</option>
               <option value="brown">Brown noise</option>
             </select>
           </div>
           <div className="flex items-center justify-between gap-3 py-1.5">
             <label htmlFor="suara-volume" className="text-sm text-ink-muted">
-              Volume ambient
+              Ambient volume
             </label>
             <input
               id="suara-volume"
@@ -634,7 +634,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
             />
           </div>
           <p className="pt-1 text-xs text-ink-muted">
-            Ambient berbunyi selama timer berjalan. Semua suara disintesis di perangkat.
+            Ambient plays while the timer runs. All sounds are synthesized on-device.
           </p>
         </section>
 
@@ -642,7 +642,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
           <h3 className="label">Data</h3>
           {!databaseAvailable ? (
             <p className="py-2 text-sm text-ink-muted">
-              Data nonaktif — penyimpanan browser tidak tersedia.
+              Data disabled — browser storage is unavailable.
             </p>
           ) : (
             <div className="flex flex-wrap items-center gap-2 py-2">
@@ -652,7 +652,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
                 onClick={exportSessions}
                 className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Ekspor sesi (CSV)
+                Export sessions (CSV)
               </button>
               <button
                 type="button"
@@ -660,10 +660,10 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
                 onClick={exportBackupFile}
                 className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Ekspor backup
+                Export backup
               </button>
               <label className="cursor-pointer rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
-                Pulihkan backup
+                Restore backup
                 <input
                   type="file"
                   accept="application/json,.json"
@@ -678,7 +678,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
             </div>
           )}
           <p className="pt-1 text-xs text-ink-muted">
-            Backup memuat task, sesi, blok, dan preset. Impor menggabung, tidak menghapus.
+            Backup includes tasks, sessions, blocks, and presets. Import merges, never deletes.
           </p>
         </section>
 
@@ -688,7 +688,7 @@ export default function PengaturanPanel({ running, onClose }: PengaturanPanelPro
             onClick={resetAll}
             className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted"
           >
-            Kembalikan bawaan
+            Reset to defaults
           </button>
         </div>
       </div>

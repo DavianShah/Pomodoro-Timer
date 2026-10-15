@@ -1,8 +1,8 @@
 /**
- * Pemasangan PWA (PRD F15): tombol teks kecil "Pasang aplikasi" di footer
- * hanya muncul kalau browser mengirim `beforeinstallprompt`, dan hilang
- * setelah terpasang. Tanpa popup, tanpa banner — infobar bawaan browser
- * dicegah lewat `preventDefault`.
+ * PWA installation (PRD F15): the small "Install app" text button in the
+ * footer only appears when the browser fires `beforeinstallprompt`, and
+ * disappears once installed. No popup, no banner — the browser's default
+ * infobar is suppressed via `preventDefault`.
  */
 import { create } from 'zustand'
 
@@ -13,9 +13,9 @@ interface InstallPromptEvent extends Event {
 let deferred: InstallPromptEvent | null = null
 
 export interface InstallState {
-  /** true selama browser menawarkan pemasangan. */
+  /** true while the browser offers installation. */
   available: boolean
-  /** Minta pemasangan; prompt browser hanya boleh dipanggil sekali. */
+  /** Request installation; the browser prompt may only be called once. */
   prompt: () => void
 }
 
@@ -29,7 +29,7 @@ export const useInstall = create<InstallState>(() => ({
   },
 }))
 
-/** Pasang listener sekali saat aplikasi mulai (main.tsx). */
+/** Attach listeners once at app start (main.tsx). */
 export function initInstallPrompt(): void {
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault()

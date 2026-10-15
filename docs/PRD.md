@@ -1,135 +1,135 @@
-# PRD: Ritme — Timer Fokus Multi-Metode
+# PRD: Ritme — Multi-Method Focus Timer
 
-*Nama kerja, ganti sesuka lu. Versi 1.0, 1 Oktober 2026.*
+*Working name, change it as you like. Version 1.0, October 1, 2026.*
 
-## 1. Ringkasan
+## 1. Summary
 
-Ritme adalah web app timer fokus yang jalan penuh di browser dan di-deploy ke Vercel. Bedanya dari timer pomodoro biasa: (a) ada lima metode kerja, bukan cuma 25/5; (b) timer bisa dipindah ke **jendela mini always-on-top** supaya tetap kelihatan dan tetap akurat saat pindah tab/app; (c) tampilannya sengaja dibuat seperti instrumen, bukan template SaaS.
+Ritme is a focus timer web app that runs entirely in the browser and deploys to Vercel. What sets it apart from ordinary pomodoro timers: (a) five work methods, not just 25/5; (b) the timer can move into an **always-on-top mini window** so it stays visible and stays accurate while switching tabs/apps; (c) the look is deliberately instrument-like, not a SaaS template.
 
-**Target user:** mahasiswa dan pekerja yang kerja di laptop dan sering pindah tab (koding, nulis, belajar). **Tujuan:** timer yang akurat, enak dipakai tiap hari, tanpa akun, data tetap di perangkat.
+**Target user:** students and workers on laptops who switch tabs often (coding, writing, studying). **Goal:** an accurate timer that is pleasant to use every day, no account, data stays on device.
 
-## 2. Tujuan dan Non-Tujuan
+## 2. Goals and Non-Goals
 
-| Tujuan v1 | Non-tujuan v1 |
+| v1 goals | v1 non-goals |
 | --- | --- |
-| Timer akurat walau tab di background | Akun, login, sync lintas device (masuk v2) |
-| 5 metode kerja + custom | Fitur sosial, leaderboard, ranking |
-| Jendela mini (PiP) + fallback | Gamifikasi (hewan peliharaan, confetti, XP) |
-| Task list, statistik, PWA offline | Fitur "AI coach" atau rekomendasi otomatis |
+| Accurate timer even with the tab in the background | Accounts, login, cross-device sync (v2) |
+| 5 work methods + custom | Social features, leaderboards, ranking |
+| Mini window (PiP) + fallback | Gamification (pets, confetti, XP) |
+| Task list, stats, PWA offline | "AI coach" features or automatic recommendations |
 
-## 3. Metode Kerja
+## 3. Work Methods
 
-| Metode | Fokus | Istirahat | Perilaku timer |
+| Method | Focus | Break | Timer behavior |
 | --- | --- | --- | --- |
-| **Pomodoro** | 25 mnt | 5 mnt (15 mnt tiap 4 sesi) | Hitung mundur, siklus 4 sesi |
-| **52/17** | 52 mnt | 17 mnt | Hitung mundur, tanpa istirahat panjang |
-| **Ultradian** | 90 mnt | 20 mnt | Hitung mundur; saran maksimal 3–4 sesi/hari |
-| **Flowtime** | Fleksibel | Proporsional | Fokus **hitung maju**. User tekan "Selesai" kapan pun, istirahat dihitung otomatis dari lama fokus. Tidak ada alarm saat fokus |
-| **Time Boxing** | Berbasis jam | Fleksibel | User menyusun blok waktu di timeline harian (mis. 09.00–10.30). Timer menghitung mundur ke akhir blok yang sedang berjalan |
-| **Custom** | Bebas | Bebas | User tentukan sendiri, bisa disimpan sebagai preset |
+| **Pomodoro** | 25 min | 5 min (15 min every 4 sessions) | Counts down, 4-session cycle |
+| **52/17** | 52 min | 17 min | Counts down, no long break |
+| **Ultradian** | 90 min | 20 min | Counts down; suggested max 3–4 sessions/day |
+| **Flowtime** | Flexible | Proportional | Focus **counts up**. The user presses "Finish" whenever, the break is computed automatically from focus length. No alarm during focus |
+| **Time Boxing** | Clock-based | Flexible | The user lays out time blocks on a daily timeline (e.g. 09:00–10:30). The timer counts down to the end of the running block |
+| **Custom** | Free | Free | The user decides, can be saved as a preset |
 
-**Aturan istirahat Flowtime (default, bisa diubah):** fokus \< 25 mnt → istirahat 5 mnt; 25–50 → 8; 50–90 → 10; > 90 → 15.
+**Flowtime break rules (defaults, configurable):** focus \< 25 min → 5 min break; 25–50 → 8; 50–90 → 10; > 90 → 15.
 
-**Time Boxing:** blok dibuat lewat drag di timeline, tiap blok bisa dikaitkan ke task. Kalau blok berakhir, tampil prompt "lanjut / geser blok berikutnya / selesai". Blok yang overrun ditandai, bukan dihapus.
+**Time Boxing:** blocks are created by dragging on the timeline, each block can be linked to a task. When a block ends, a prompt appears: "extend / shift the following block / finish". Overrun blocks are flagged, not deleted.
 
-Semua metode dibuat sebagai konfigurasi pada satu mesin timer (pola strategy), supaya menambah metode baru tidak mengubah inti kode.
+All methods are configuration on a single timer engine (strategy pattern), so adding a new method does not change the core code.
 
-## 4. Fitur dan Prioritas
+## 4. Features and Priorities
 
-**P0, wajib untuk rilis pertama**
+**P0, required for the first release**
 
-| ID | Fitur | Kriteria selesai |
+| ID | Feature | Done criteria |
 | --- | --- | --- |
-| F1 | Mesin timer berbasis timestamp | Pakai `endTime = Date.now() + sisa`, bukan decrement per detik. Drift \< 1 detik per jam, termasuk saat tab di background, laptop sleep, dan resume |
-| F2 | Timer jalan di Web Worker | Tick tidak ikut di-throttle browser |
-| F3 | Pemilih metode + pengaturan durasi | Ganti metode saat idle tanpa reload; durasi tersimpan |
-| F4 | Jendela mini | Lihat bagian 6 |
-| F5 | Notifikasi sesi selesai | Suara + Web Notification + judul tab berubah (`12:34 · Fokus`). Audio di-unlock saat interaksi pertama user |
-| F6 | Counter sesi dan siklus | Kelihatan posisi sesi di siklus (mis. 3 dari 4) |
-| F7 | Keyboard shortcut | Spasi = mulai/jeda, R = reset, S = lewati, M = jendela mini, 1–5 = ganti metode |
-| F8 | Pulih setelah reload/tutup tab | State timer dipulihkan dari penyimpanan lokal |
+| F1 | Timestamp-based timer engine | Use `endTime = Date.now() + remaining`, not per-second decrement. Drift \< 1 second per hour, including with the tab in the background, laptop sleep, and resume |
+| F2 | Timer runs in a Web Worker | Ticks are not throttled by the browser |
+| F3 | Method picker + duration settings | Change method while idle without a reload; durations persist |
+| F4 | Mini window | See section 6 |
+| F5 | Session-finished notification | Sound + Web Notification + tab title changes (`12:34 · Focus`). Audio is unlocked on the user's first interaction |
+| F6 | Session and cycle counter | Session position in the cycle is visible (e.g. 3 of 4) |
+| F7 | Keyboard shortcuts | Space = start/pause, R = reset, S = skip, M = mini window, 1–5 = change method |
+| F8 | Recovery after reload/tab close | Timer state is restored from local storage |
 
-**P1, target v1.1**
+**P1, v1.1 target**
 
-| ID | Fitur |
+| ID | Feature |
 | --- | --- |
-| F9 | Task list sederhana; tiap sesi fokus dikaitkan ke satu task; hitung jumlah sesi per task |
-| F10 | Statistik harian/mingguan: total jam fokus, jumlah sesi, per metode, per task. Disimpan lokal |
-| F11 | Streak harian (hari berturut-turut dengan minimal 1 sesi selesai) |
-| F12 | Tema terang/gelap mengikuti sistem + pilihan manual |
-| F13 | Pilihan suara alarm dan suara ambient (hujan, kipas, brown noise), semua file lokal |
-| F14 | Wake Lock saat timer jalan |
-| F15 | PWA: bisa di-install, jalan offline |
-| F16 | Time Boxing penuh (timeline, drag blok) |
+| F9 | Simple task list; every focus session is linked to one task; count sessions per task |
+| F10 | Daily/weekly stats: total focus hours, session count, by method, by task. Stored locally |
+| F11 | Daily streak (consecutive days with at least 1 completed session) |
+| F12 | Light/dark theme following the system + manual choice |
+| F13 | Alarm and ambient sound choices (rain, fan, brown noise), all local files |
+| F14 | Wake Lock while the timer runs |
+| F15 | PWA: installable, works offline |
+| F16 | Full Time Boxing (timeline, block drag) |
 
 **P2, v2**
 
-| ID | Fitur |
+| ID | Feature |
 | --- | --- |
-| F17 | Login + sync lintas device (Supabase) |
-| F18 | Mode strict: peringatan kalau terlalu sering jeda/skip |
-| F19 | Export CSV, import backup |
-| F20 | Bahasa Indonesia / Inggris |
+| F17 | Login + cross-device sync (Supabase) |
+| F18 | Strict mode: warning when pausing/skipping too often |
+| F19 | CSV export, backup import |
+| F20 | Indonesian / English UI |
 
-## 5. Alur Pengguna Utama
+## 5. Main User Flow
 
-1. Buka web → langsung di layar timer, metode terakhir terpilih, tombol Mulai jelas.
-2. Pilih task (opsional) → Mulai.
-3. Pindah tab → klik "Jendela mini" sekali (atau tekan M). Timer muncul kecil di atas semua window.
-4. Sesi selesai → bunyi + notifikasi → tombol utama berubah jadi "Mulai istirahat".
-5. Akhir hari → buka Statistik, lihat total fokus.
+1. Open the web app → straight to the timer screen, last method selected, an obvious Start button.
+2. Pick a task (optional) → Start.
+3. Switch tabs → click "Mini window" once (or press M). The timer appears small above all windows.
+4. Session finishes → sound + notification → the main button becomes "Start break".
+5. End of day → open Stats, look at total focus.
 
-## 6. Jendela Mini
+## 6. Mini Window
 
-- **Cara utama:** Document Picture-in-Picture API (`documentPictureInPicture.requestWindow()`). Window kecil always-on-top, isinya HTML/CSS kita sendiri. Chrome/Edge desktop.
-- **Fallback:** `window.open()` popup kecil (tidak always-on-top) untuk browser lain, ditambah hitung mundur di judul tab.
-- Window hanya bisa dibuka lewat aksi user (klik/shortcut), tidak bisa otomatis.
-- Salin stylesheet halaman utama ke window mini; logika timer tetap satu sumber di halaman utama dan window mini hanya menampilkan state. Kalau tab utama ditutup, window mini ikut tertutup, jadi tampilkan peringatan sebelum tab ditutup saat timer jalan.
-- Isi window mini: angka waktu, label mode, satu tombol utama (mulai/jeda), garis progres tipis. Tanpa menu, tanpa dekorasi. Ukuran awal sekitar 300×180.
+- **Primary path:** Document Picture-in-Picture API (`documentPictureInPicture.requestWindow()`). Small always-on-top window with our own HTML/CSS. Desktop Chrome/Edge.
+- **Fallback:** a small `window.open()` popup (not always-on-top) for other browsers, plus a countdown in the tab title.
+- The window can only be opened through a user action (click/shortcut), never automatically.
+- Copy the main page stylesheet into the mini window; timer logic stays single-source in the main page and the mini window only displays state. If the main tab closes, the mini window closes too, so show a warning before the tab closes while the timer runs.
+- Mini window contents: time digits, mode label, one main button (start/pause), a thin progress line. No menu, no decoration. Initial size around 300×180.
 
-## 7. Arah UI (anti "AI slop")
+## 7. UI Direction (anti "AI slop")
 
-**Konsep:** instrumen, bukan dashboard. Bayangkan timer dapur analog atau alat ukur: satu hal dominan di layar, yaitu waktu.
+**Concept:** an instrument, not a dashboard. Think analog kitchen timer or measuring device: one dominant thing on screen — the time.
 
-**Yang dihindari secara eksplisit**
+**Explicitly avoided**
 
-- Gradien ungu-biru, teks bergradien, glassmorphism, glow
-- Lingkaran progres dengan gradien dan bayangan tebal
-- Kartu bersudut membulat besar berlapis-lapis di semua tempat
-- Emoji tomat / ikon sparkle / ilustrasi 3D generik
-- Tampilan bawaan shadcn tanpa diubah, font Inter di semua tempat
-- Copy bernada motivasi ("Ayo hancurkan targetmu!"), confetti, animasi memantul
+- Purple-blue gradients, gradient text, glassmorphism, glow
+- Progress rings with gradients and heavy shadows
+- Big rounded-corner cards stacked everywhere
+- Tomato emoji / sparkle icons / generic 3D illustrations
+- Untouched default shadcn look, Inter everywhere
+- Motivational copy ("Crush your goals!"), confetti, bouncy animations
 
-**Yang dipakai**
+**Used**
 
-- **Warna:** latar kertas hangat `#F2EEE6`, tinta `#1B1A17`. Mode gelap pakai hitam hangat `#14130F`, bukan hitam murni atau abu kebiruan. Satu aksen per mode kerja, dari palet terbatas: merah-oranye bata (fokus), hijau lumut (istirahat), kuning oker (istirahat panjang). Aksen hanya dipakai di tombol utama dan progres.
-- **Tipografi:** maksimal dua keluarga. Angka waktu: font mono atau grotesk tebal dengan `font-variant-numeric: tabular-nums`, ukuran sangat besar (mis. `clamp(6rem, 22vw, 20rem)`) supaya angka tidak bergeser tiap detik. Teks UI: satu sans netral. Serif italic boleh dipakai sangat hemat untuk label seperti nama sesi.
-- **Progres:** garis tipis horizontal selebar viewport, ditambah deret segmen untuk siklus (satu segmen per sesi), bukan ring.
-- **Layout:** angka di tengah dan dominan; kontrol kecil dan jarang; task list dan statistik di panel samping yang bisa ditutup. Spasi lega, garis tipis 1 px sebagai pemisah, bayangan nyaris tidak ada.
-- **Motion:** hampir nol. Pergantian mode = transisi warna latar 300 ms. Angka tidak dianimasikan. Hormati `prefers-reduced-motion`.
-- **Copy:** pendek, datar, konkret. "Fokus", "Istirahat 5 menit", "Sesi 3 dari 4".
-- **Aksesibilitas:** kontras minimal WCAG AA, semua kontrol bisa diakses keyboard, `aria-live` untuk perubahan status (bukan tiap detik), fokus ring terlihat jelas.
+- **Color:** warm paper background `#F2EEE6`, ink `#1B1A17`. Dark mode uses warm black `#14130F`, not pure black or bluish gray. One accent per work mode, from a limited palette: brick red-orange (focus), moss green (break), ochre yellow (long break). Accents are only used on the main button and progress.
+- **Typography:** at most two families. Time digits: a mono or bold grotesk with `font-variant-numeric: tabular-nums`, very large (e.g. `clamp(6rem, 22vw, 20rem)`) so digits do not shift every second. UI text: one neutral sans. Serif italic allowed very sparingly for labels like session names.
+- **Progress:** a thin horizontal line the width of the viewport, plus a segment strip for the cycle (one segment per session), not a ring.
+- **Layout:** the digits centered and dominant; controls small and sparse; task list and stats in side panels that can be closed. Generous spacing, 1px hairlines as dividers, almost no shadows.
+- **Motion:** near zero. Mode change = 300ms background color transition. Digits are not animated. Respect `prefers-reduced-motion`.
+- **Copy:** short, flat, concrete. "Focus", "5-minute break", "Session 3 of 4".
+- **Accessibility:** WCAG AA contrast minimum, every control keyboard reachable, `aria-live` for status changes (not every second), clearly visible focus ring.
 
-**Layar:** Timer (utama), Task (panel), Time Boxing (timeline harian), Statistik, Pengaturan, Jendela mini.
+**Screens:** Timer (main), Task (panel), Time Boxing (daily timeline), Stats, Settings, Mini window.
 
-Saran proses: bikin satu layar timer di Figma/langsung di kode dulu, putuskan font dan palet, baru bangun sisanya. Jangan mulai dari komponen library.
+Process advice: build one timer screen in Figma/straight in code first, decide font and palette, then build the rest. Do not start from a component library.
 
-## 8. Stack Teknis
+## 8. Technical Stack
 
-| Lapisan | Pilihan | Alasan |
+| Layer | Choice | Reason |
 | --- | --- | --- |
-| Framework | **Vite + React + TypeScript** | App ini murni client-side, tidak perlu SSR. Worker dan PiP lebih sederhana. Deploy ke Vercel tetap mulus (Next.js juga bisa kalau lu lebih nyaman) |
-| Styling | Tailwind CSS + CSS variables untuk token tema | Cepat, tapi token warna/tipografi didefinisikan sendiri, bukan default |
-| State | Zustand | Ringan, cocok untuk state timer |
-| Penyimpanan | IndexedDB lewat Dexie (task, sesi, statistik); localStorage untuk setting kecil | Data terstruktur dan bisa di-query |
-| Timer | Web Worker + state machine (XState atau reducer manual) | Akurat dan mudah diuji |
-| Chart | SVG buatan sendiri atau uPlot | Statistik sederhana, hindari library besar |
+| Framework | **Vite + React + TypeScript** | This app is purely client-side, no SSR needed. Worker and PiP are simpler. Deploying to Vercel stays smooth (Next.js works too if you prefer it) |
+| Styling | Tailwind CSS + CSS variables for theme tokens | Fast, but color/typography tokens are defined by us, not defaults |
+| State | Zustand | Lightweight, fits timer state |
+| Storage | IndexedDB via Dexie (tasks, sessions, stats); localStorage for small settings | Structured, queryable data |
+| Timer | Web Worker + state machine (XState or manual reducer) | Accurate and easy to test |
+| Chart | Hand-rolled SVG or uPlot | Simple stats, avoid heavy libraries |
 | PWA | vite-plugin-pwa | Service worker, manifest, offline |
-| Tes | Vitest (mesin timer), Playwright (alur utama) | Mesin timer wajib diuji dengan fake timers |
-| Deploy | Vercel (preview per PR, produksi dari `main`) | Sesuai rencana |
-| v2 | Supabase (auth + Postgres) untuk sync | Gratis untuk skala kecil |
+| Tests | Vitest (timer engine), Playwright (main flows) | The timer engine must be tested with fake timers |
+| Deploy | Vercel (preview per PR, production from `main`) | As planned |
+| v2 | Supabase (auth + Postgres) for sync | Free at small scale |
 
-## 9. Model Data (ringkas)
+## 9. Data Model (concise)
 
 ```
 Session  { id, method, kind: focus|break|longBreak, startedAt, endedAt, plannedMs, actualMs, taskId?, completed }
@@ -137,49 +137,49 @@ Task     { id, title, createdAt, doneAt?, sessionCount }
 Block    { id, date, startMin, endMin, taskId?, status }          // Time Boxing
 Preset   { id, name, focusMs, breakMs, longBreakMs?, cycle? }
 Settings { theme, sound, autoStartNext, notifications, wakeLock, lastMethod }
-TimerState { method, phase, endTime?, elapsedMs?, cycleIndex, running }  // dipulihkan saat reload
+TimerState { method, phase, endTime?, elapsedMs?, cycleIndex, running }  // restored on reload
 ```
 
-## 10. Persyaratan Non-Fungsional
+## 10. Non-Functional Requirements
 
-- **Akurasi:** drift \< 1 detik/jam, termasuk tab di background dan resume dari sleep
-- **Performa:** Lighthouse Performance dan Accessibility ≥ 95; JS awal \< 150 KB gzip
-- **Privasi:** semua data lokal di v1; tanpa tracker pihak ketiga
-- **Browser:** Chrome/Edge penuh (termasuk PiP); Firefox/Safari dengan fallback popup
-- **Offline:** setelah kunjungan pertama, seluruh fitur P0 jalan tanpa internet
+- **Accuracy:** drift \< 1 second/hour, including a background tab and resuming from sleep
+- **Performance:** Lighthouse Performance and Accessibility ≥ 95; initial JS \< 150 KB gzip
+- **Privacy:** all data local in v1; no third-party trackers
+- **Browsers:** full Chrome/Edge (including PiP); Firefox/Safari with the popup fallback
+- **Offline:** after the first visit, all P0 features work without internet
 
-## 11. Risiko dan Catatan Teknis
+## 11. Risks and Technical Notes
 
-| Risiko | Mitigasi |
+| Risk | Mitigation |
 | --- | --- |
-| Autoplay audio diblokir browser | Unlock AudioContext pada interaksi pertama; tampilkan indikator bila suara belum aktif |
-| Izin notifikasi ditolak | Tetap bunyi + judul tab; jelaskan cara mengaktifkan di pengaturan |
-| PiP tidak ada di Firefox/Safari | Deteksi fitur (`'documentPictureInPicture' in window`), pakai fallback |
-| Laptop sleep saat timer jalan | Hitung dari timestamp saat bangun; kalau sudah lewat, langsung tampilkan sesi selesai |
-| Time Boxing makan waktu build terlalu banyak | Rilis dulu sebagai P1 (F16); v1 awal cukup 4 metode lain |
+| Browser blocks autoplay audio | Unlock AudioContext on first interaction; show an indicator when sound is not active yet |
+| Notification permission denied | Sound + tab title still work; explain how to enable it in settings |
+| No PiP in Firefox/Safari | Feature detection (`'documentPictureInPicture' in window`), use the fallback |
+| Laptop sleeps while the timer runs | Compute from the timestamp on wake; if it already passed, show the finished session right away |
+| Time Boxing eats too much build time | Ship it first as P1 (F16); the initial v1 is enough with the other 4 methods |
 
-## 12. Milestone (estimasi untuk satu orang, kerja sela kuliah)
+## 12. Milestones (estimate for one person, working around classes)
 
-| Tahap | Isi | Estimasi |
+| Stage | Content | Estimate |
 | --- | --- | --- |
-| M0 | Setup repo, Vite, deploy kosong ke Vercel, token desain (warna/font) | 1 hari |
-| M1 | Mesin timer + Worker + metode hitung mundur + Flowtime + tes | 3–4 hari |
-| M2 | Layar timer final, shortcut, notifikasi, pemulihan state | 3 hari |
-| M3 | Jendela mini + fallback | 2 hari |
-| M4 | Task list, statistik, streak, tema | 4–5 hari |
-| M5 | Time Boxing, PWA, polishing, aksesibilitas, Lighthouse | 4–5 hari |
-| v2 | Sync akun, mode strict, export | menyusul |
+| M0 | Repo setup, Vite, empty deploy to Vercel, design tokens (colors/fonts) | 1 day |
+| M1 | Timer engine + Worker + countdown methods + Flowtime + tests | 3–4 days |
+| M2 | Final timer screen, shortcuts, notifications, state recovery | 3 days |
+| M3 | Mini window + fallback | 2 days |
+| M4 | Task list, stats, streak, theme | 4–5 days |
+| M5 | Time Boxing, PWA, polish, accessibility, Lighthouse | 4–5 days |
+| v2 | Account sync, strict mode, export | to follow |
 
-## 13. Metrik Keberhasilan
+## 13. Success Metrics
 
-- Dipakai sendiri tiap hari selama 2 minggu tanpa balik ke timer lain
-- Tes drift lolos (jalan 60 menit di tab background, selisih \< 1 detik)
-- Lighthouse ≥ 95 di Performance dan Accessibility
-- Orang lain yang lihat bilang "ini bukan template", bukan "ini keren banget AI"
+- Used daily for 2 weeks without going back to another timer
+- Drift test passes (run 60 minutes in a background tab, difference \< 1 second)
+- Lighthouse ≥ 95 in Performance and Accessibility
+- Others who see it say "this isn't a template", not "this is very AI cool"
 
-## 14. Pertanyaan Terbuka
+## 14. Open Questions
 
-1. Stack final: Vite+React atau Next.js?
-2. Bahasa antarmuka v1: Indonesia saja atau langsung dua bahasa?
-3. Nama final dan identitas visual (logo/wordmark)?
-4. Time Boxing masuk rilis pertama atau menyusul di v1.1?
+1. Final stack: Vite+React or Next.js?
+2. v1 interface language: Indonesian only or two languages from the start?
+3. Final name and visual identity (logo/wordmark)?
+4. Does Time Boxing make the first release or follow in v1.1?

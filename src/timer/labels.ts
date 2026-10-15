@@ -1,4 +1,4 @@
-/** Label tampilan berbahasa Indonesia untuk timer (dipakai layar dan judul tab). */
+/** Display labels for the timer (used by screens and the tab title). */
 
 import { formatClock, plannedPhaseMs, type TimerState } from './engine'
 import { methodById, type RunnableMethod } from './methods'
@@ -8,36 +8,36 @@ import { currentBlock, formatBlockRange, formatMin, nextBlock } from './blocks'
 export const APP_TITLE = 'Ritme'
 
 export function phaseLabel(phase: Phase): string {
-  if (phase === 'focus') return 'Fokus'
-  if (phase === 'break') return 'Istirahat'
-  return 'Istirahat panjang'
+  if (phase === 'focus') return 'Focus'
+  if (phase === 'break') return 'Break'
+  return 'Long break'
 }
 
 /**
- * Baris status di bawah jam. Metode tanpa siklus tetap (Flowtime, 52/17,
- * Ultradian, Custom) tidak pernah menampilkan posisi sesi — hanya Pomodoro
- * yang cycle-nya > 1.
+ * Status line under the clock. Methods without a fixed cycle (Flowtime,
+ * 52/17, Ultradian, Custom) never show session position — only Pomodoro
+ * has cycle > 1.
  */
 export function sessionStatus(method: RunnableMethod, cycleIndex: number, phase: Phase): string {
   const parts = [phaseLabel(phase)]
-  if (method.cycle > 1) parts.push(`Sesi ${cycleIndex} dari ${method.cycle}`)
+  if (method.cycle > 1) parts.push(`Session ${cycleIndex} of ${method.cycle}`)
   return parts.join(' · ')
 }
 
 /**
- * Baris status Time Boxing: penanda prompt, blok aktif, atau blok
- * berikutnya (PRD F16).
+ * Time Boxing status line: prompt marker, active block, or the next
+ * block (PRD F16).
  */
 export function boxingStatus(state: TimerState, blocks: BlockRow[], now: number): string {
-  if (!state.running && state.endTime !== null && state.endTime <= now) return 'Blok selesai'
+  if (!state.running && state.endTime !== null && state.endTime <= now) return 'Block finished'
   const block = currentBlock(blocks, now)
-  if (block !== null) return `Fokus · ${formatBlockRange(block)}`
+  if (block !== null) return `Focus · ${formatBlockRange(block)}`
   const next = nextBlock(blocks, now)
-  if (next !== null) return `Tidak ada blok sekarang. Berikutnya: ${formatMin(next.startMin)}`
-  return 'Tidak ada blok berikutnya'
+  if (next !== null) return `No block now. Next: ${formatMin(next.startMin)}`
+  return 'No next block'
 }
 
-/** Prompt blok berakhir: Time Boxing, idle, `endTime` sudah lewat (PRD F16). */
+/** Block-ended prompt: Time Boxing, idle, `endTime` already past (PRD F16). */
 export function isBlockPrompt(state: TimerState, now: number): boolean {
   return (
     methodById(state.method).mode === 'boxing' &&
@@ -48,20 +48,20 @@ export function isBlockPrompt(state: TimerState, now: number): boolean {
 }
 
 /**
- * Label tombol utama (layar utama dan jendela mini memakai satu sumber):
- * hitung maju yang berjalan menawarkan "Selesai", fase istirahat memakai
- * "Mulai istirahat" (PRD bagian 5).
+ * Primary button label (main screen and mini window share one source):
+ * a running count-up offers "Finish", the break phase uses "Start break"
+ * (PRD section 5).
  */
-export function primaryLabel(state: TimerState): 'Mulai' | 'Mulai istirahat' | 'Jeda' | 'Selesai' {
+export function primaryLabel(state: TimerState): 'Start' | 'Start break' | 'Pause' | 'Finish' {
   const method = methodById(state.method)
   const endedByUser =
     (method.mode === 'countup' || method.mode === 'boxing') && state.phase === 'focus'
-  if (endedByUser && state.running) return 'Selesai'
-  if (state.running) return 'Jeda'
-  return state.phase === 'focus' ? 'Mulai' : 'Mulai istirahat'
+  if (endedByUser && state.running) return 'Finish'
+  if (state.running) return 'Pause'
+  return state.phase === 'focus' ? 'Start' : 'Start break'
 }
 
-/** Progres sesi 0-100: hitung mundur dari rencana fase atau panjang blok; hitung maju = 0. */
+/** Session progress 0-100: countdown from the planned phase or block length; count-up = 0. */
 export function sessionProgress(state: TimerState, display: number, blockMs?: number): number {
   const method = methodById(state.method)
   const planned =
@@ -71,8 +71,8 @@ export function sessionProgress(state: TimerState, display: number, blockMs?: nu
 }
 
 /**
- * Judul tab: penanda sesi selesai selama tab masih tersembunyi; saat berjalan
- * menampilkan sisa waktu; selain itu nama aplikasi (PRD F5).
+ * Tab title: a finished-session marker while the tab is hidden; the remaining
+ * time while running; otherwise the app name (PRD F5).
  */
 export function documentTitle(
   state: TimerState,

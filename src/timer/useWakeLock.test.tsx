@@ -1,7 +1,7 @@
 /**
- * Wake Lock (F14) dengan navigator.wakeLock di-mock: minta saat aktif,
- * lepas saat berhenti, minta ulang saat tab terlihat, gagal = senyap,
- * tidak didukung = tidak meminta apa pun.
+ * Wake Lock (F14) with a mocked navigator.wakeLock: request while active,
+ * release when stopped, re-request when the tab becomes visible, failure =
+ * silent, unsupported = request nothing.
  */
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,11 +15,11 @@ interface MockWakeLock {
   request: ReturnType<typeof vi.fn<(type: string) => Promise<MockLock>>>
 }
 
-/** Pasang navigator.wakeLock buatan; `reject` meniru izin yang ditolak. */
+/** Install a fake navigator.wakeLock; `reject` mimics a denied permission. */
 function installWakeLock(reject = false): MockWakeLock {
   const wakeLock: MockWakeLock = {
     request: vi.fn(() => {
-      if (reject) return Promise.reject(new DOMException('izin ditolak', 'NotAllowedError'))
+      if (reject) return Promise.reject(new DOMException('permission denied', 'NotAllowedError'))
       return Promise.resolve({ release: vi.fn<() => Promise<void>>().mockResolvedValue(undefined) })
     }),
   }
@@ -49,19 +49,19 @@ afterEach(() => {
 })
 
 describe('useWakeLock', () => {
-  it('minta screen saat aktif', async () => {
+  it('requests screen while active', async () => {
     const wakeLock = installWakeLock()
     renderHook(() => useWakeLock(true))
     await waitFor(() => expect(wakeLock.request).toHaveBeenCalledWith('screen'))
   })
 
-  it('tidak minta saat tidak aktif (timer idle/jeda, pengaturan mati)', () => {
+  it('requests nothing while inactive (timer idle/paused, setting off)', () => {
     const wakeLock = installWakeLock()
     renderHook(() => useWakeLock(false))
     expect(wakeLock.request).not.toHaveBeenCalled()
   })
 
-  it('lepas saat berhenti', async () => {
+  it('releases when stopped', async () => {
     const wakeLock = installWakeLock()
     const { rerender } = renderHook(({ active }) => useWakeLock(active), {
       initialProps: { active: true },
@@ -73,7 +73,7 @@ describe('useWakeLock', () => {
     await waitFor(() => expect(lock.release).toHaveBeenCalledTimes(1))
   })
 
-  it('minta ulang saat tab terlihat lagi selama timer jalan', async () => {
+  it('re-requests when the tab becomes visible again while the timer runs', async () => {
     setVisibility('hidden')
     const wakeLock = installWakeLock()
     renderHook(() => useWakeLock(true))
@@ -86,19 +86,19 @@ describe('useWakeLock', () => {
     await waitFor(() => expect(first.release).toHaveBeenCalled())
   })
 
-  it('permintaan gagal: senyap, lalu bisa dicoba lagi', async () => {
+  it('request fails: silent, then can be retried', async () => {
     const wakeLock = installWakeLock(true)
     renderHook(() => useWakeLock(true))
     await waitFor(() => expect(wakeLock.request).toHaveBeenCalledTimes(1))
 
-    // Tidak ada penolakan yang lolos (vitest gagal kalau ada unhandled rejection)
-    // dan pemicu berikutnya tetap mencoba.
+    // No rejection escapes (vitest fails on unhandled rejections) and the
+    // next trigger still tries.
     fireVisibility('hidden')
     fireVisibility('visible')
     await waitFor(() => expect(wakeLock.request).toHaveBeenCalledTimes(2))
   })
 
-  it('tidak didukung: tidak meminta apa pun', () => {
+  it('unsupported: requests nothing', () => {
     const wakeLock = installWakeLock()
     removeWakeLock()
     expect(wakeLockSupported()).toBe(false)

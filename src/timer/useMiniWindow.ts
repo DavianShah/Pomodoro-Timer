@@ -1,17 +1,17 @@
 /**
- * State jendela mini (F4). Toggle buka/tutup lewat aksi user (tombol atau
- * shortcut M). Timer tetap berjalan di halaman utama — window mini hanya
- * menampilkan state; tidak ada timer kedua dan state mini tidak dipulihkan
- * otomatis setelah reload.
+ * Mini window state (F4). Open/close is toggled by user actions (button or
+ * the M shortcut). The timer keeps running on the main page — the mini
+ * window only displays state; there is no second timer, and the mini state
+ * is not restored automatically after a reload.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { closeMiniWindow, openMiniWindow, prepareMiniDocument } from './miniWindow'
 
 export interface MiniWindowApi {
-  /** Window mini yang terbuka; null = tertutup. */
+  /** The open mini window; null = closed. */
   win: Window | null
-  /** Popup diblokir browser — layar utama menampilkan pesan role="status". */
+  /** Popup blocked by the browser — the main screen shows a role="status" message. */
   blocked: boolean
   toggle: () => void
 }
@@ -50,7 +50,7 @@ export function useMiniWindow(timerRunning: boolean): MiniWindowApi {
       })
   }, [])
 
-  // Ditutup lewat X (pagehide) → state "terbuka" ikut ter-reset.
+  // Closed via X (pagehide) → the "open" state resets along with it.
   useEffect(() => {
     if (win === null) return undefined
     const onPageHide = (): void => {
@@ -61,8 +61,8 @@ export function useMiniWindow(timerRunning: boolean): MiniWindowApi {
     return () => win.removeEventListener('pagehide', onPageHide)
   }, [win])
 
-  // Peringatan hanya saat halaman utama ditutup/reload dengan timer jalan
-  // dan mini terbuka; kondisi lain tanpa peringatan (PRD bagian 6).
+  // Warn only when the main page is closed/reloaded with the timer running
+  // and the mini open; no warning otherwise (PRD section 6).
   useEffect(() => {
     if (win === null || !timerRunning) return undefined
     const warn = (event: BeforeUnloadEvent): void => {

@@ -7,14 +7,14 @@ import { DEFAULT_CUSTOM, MINUTE } from '@/timer/methods'
 import { DEFAULT_AMBIENT_VOLUME } from '@/timer/ambient'
 import { DEFAULT_SETTINGS, parseSettings, useSettings } from './settings'
 
-describe('parse durasi dan Custom (PRD F3)', () => {
-  it('override valid tersimpan; di luar rentang gugur ke bawaan', () => {
+describe('parse durations and Custom (PRD F3)', () => {
+  it('valid overrides are kept; out-of-range falls back to default', () => {
     const parsed = parseSettings({
       ...DEFAULT_SETTINGS,
       durations: {
         pomodoro: { focusMs: 40 * MINUTE, breakMs: 10 * MINUTE },
         '52-17': { focusMs: 999 * MINUTE, breakMs: 10 * MINUTE },
-        ultradian: { focusMs: 90 * MINUTE, breakMs: 'sepuluh' },
+        ultradian: { focusMs: 90 * MINUTE, breakMs: 'ten' },
       },
     })
 
@@ -23,8 +23,8 @@ describe('parse durasi dan Custom (PRD F3)', () => {
     expect(parsed.durations.ultradian).toBeUndefined()
   })
 
-  it('Custom korup → null (restore jatuh ke Pomodoro)', () => {
-    expect(parseSettings({ ...DEFAULT_SETTINGS, custom: 'rusak' }).custom).toBeNull()
+  it('corrupt Custom → null (restore falls back to Pomodoro)', () => {
+    expect(parseSettings({ ...DEFAULT_SETTINGS, custom: 'broken' }).custom).toBeNull()
     expect(parseSettings({ ...DEFAULT_SETTINGS, custom: { focusMs: 0 } }).custom).toBeNull()
     expect(
       parseSettings({ ...DEFAULT_SETTINGS, custom: { ...DEFAULT_CUSTOM, focusMs: 999 * MINUTE } })
@@ -32,7 +32,7 @@ describe('parse durasi dan Custom (PRD F3)', () => {
     ).toBeNull()
   })
 
-  it('Custom absen (penyimpanan lama) → default; siklus 1 = tanpa siklus', () => {
+  it('missing Custom (old storage) → default; cycle 1 = no cycle', () => {
     const plain = { theme: 'system', lastMethod: 'pomodoro' }
     expect(parseSettings(plain).custom).toEqual({ ...DEFAULT_CUSTOM, presetName: null })
 
@@ -49,51 +49,51 @@ describe('parse durasi dan Custom (PRD F3)', () => {
     })
   })
 
-  it('Custom valid membawa nama preset', () => {
+  it('a valid Custom carries the preset name', () => {
     const parsed = parseSettings({
       ...DEFAULT_SETTINGS,
-      custom: { ...DEFAULT_CUSTOM, presetName: 'Pulih' },
+      custom: { ...DEFAULT_CUSTOM, presetName: 'Recovery' },
     })
-    expect(parsed.custom?.presetName).toBe('Pulih')
+    expect(parsed.custom?.presetName).toBe('Recovery')
   })
 })
 
-describe('parse suara dan ambient (PRD F13)', () => {
-  it('nilai valid tersimpan apa adanya', () => {
+describe('parse sound and ambient (PRD F13)', () => {
+  it('valid values are kept as-is', () => {
     const parsed = parseSettings({
       ...DEFAULT_SETTINGS,
-      alarmSound: 'lembut',
+      alarmSound: 'soft',
       alarmEnabled: false,
       notifications: false,
-      ambient: 'hujan',
+      ambient: 'rain',
       ambientVolume: 0.7,
     })
-    expect(parsed.alarmSound).toBe('lembut')
+    expect(parsed.alarmSound).toBe('soft')
     expect(parsed.alarmEnabled).toBe(false)
     expect(parsed.notifications).toBe(false)
-    expect(parsed.ambient).toBe('hujan')
+    expect(parsed.ambient).toBe('rain')
     expect(parsed.ambientVolume).toBe(0.7)
   })
 
-  it('nilai rusak/tidak dikenal → bawaan', () => {
+  it('broken/unknown values → defaults', () => {
     const parsed = parseSettings({
       ...DEFAULT_SETTINGS,
       alarmSound: 'gong',
-      alarmEnabled: 'ya',
+      alarmEnabled: 'yes',
       notifications: 1,
-      ambient: 'air',
+      ambient: 'water',
       ambientVolume: 5,
     })
-    expect(parsed.alarmSound).toBe('bip')
+    expect(parsed.alarmSound).toBe('beep')
     expect(parsed.alarmEnabled).toBe(true)
     expect(parsed.notifications).toBe(true)
     expect(parsed.ambient).toBe('off')
     expect(parsed.ambientVolume).toBe(DEFAULT_AMBIENT_VOLUME)
   })
 
-  it('penyimpanan lama tanpa field suara → default', () => {
+  it('old storage without sound fields → default', () => {
     const parsed = parseSettings({ theme: 'dark', lastMethod: 'pomodoro' })
-    expect(parsed.alarmSound).toBe('bip')
+    expect(parsed.alarmSound).toBe('beep')
     expect(parsed.alarmEnabled).toBe(true)
     expect(parsed.notifications).toBe(true)
     expect(parsed.ambient).toBe('off')
@@ -112,9 +112,9 @@ beforeEach(() => {
 })
 
 describe('useSettings.load', () => {
-  it('pilihan pengguna selama pemuatan tidak ditimpa nilai tersimpan', async () => {
+  it('a user choice during loading is not overwritten by the stored value', async () => {
     const loading = useSettings.getState().load()
-    // Tema diklik sebelum IndexedDB selesai dibaca (balapan yang diuji e2e).
+    // The theme is clicked before IndexedDB finishes reading (the race the e2e tests cover).
     useSettings.getState().setTheme('dark')
     await loading
 
@@ -122,7 +122,7 @@ describe('useSettings.load', () => {
     expect(useSettings.getState().settingsLoaded).toBe(true)
   })
 
-  it('tanpa perubahan saat pemuatan, nilai tersimpan yang dipakai', async () => {
+  it('no change during loading: the stored value wins', async () => {
     useSettings.getState().setTheme('dark')
     useSettings.setState({ settings: { ...DEFAULT_SETTINGS }, settingsLoaded: false })
 
@@ -130,8 +130,8 @@ describe('useSettings.load', () => {
     expect(useSettings.getState().settings.theme).toBe('dark')
   })
 
-  it('pengaturan kosong/tidak utuh jatuh ke default', async () => {
-    write(SETTINGS_KEY, STORAGE_VERSION, 'bukan-objek')
+  it('empty/partial settings fall back to defaults', async () => {
+    write(SETTINGS_KEY, STORAGE_VERSION, 'not-an-object')
     await db.settings.delete('app')
     await useSettings.getState().load()
     expect(useSettings.getState().settings).toEqual(DEFAULT_SETTINGS)
@@ -139,7 +139,7 @@ describe('useSettings.load', () => {
 })
 
 describe('setAmbientVolume', () => {
-  it('dijepit ke rentang 0–1', () => {
+  it('is clamped to the 0–1 range', () => {
     useSettings.getState().setAmbientVolume(2)
     expect(useSettings.getState().settings.ambientVolume).toBe(1)
     useSettings.getState().setAmbientVolume(-1)

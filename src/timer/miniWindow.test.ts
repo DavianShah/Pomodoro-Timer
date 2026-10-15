@@ -10,8 +10,8 @@ function fakeWindow(): Window {
   return { close: vi.fn() } as unknown as Window
 }
 
-describe('jendela mini: buka/tutup', () => {
-  it('memakai Document PiP kalau tersedia, dengan ukuran 300×180', async () => {
+describe('mini window: open/close', () => {
+  it('uses Document PiP when available, at 300×180', async () => {
     const pipWin = fakeWindow()
     const requestWindow = vi.fn().mockResolvedValue(pipWin)
     const open = vi.fn()
@@ -24,7 +24,7 @@ describe('jendela mini: buka/tutup', () => {
     expect(open).not.toHaveBeenCalled()
   })
 
-  it('tanpa PiP: jatuh ke window.open dengan fitur popup kecil', async () => {
+  it('without PiP: falls back to window.open with small popup features', async () => {
     const popup = fakeWindow()
     const open = vi.fn().mockReturnValue(popup)
     const host = { open } as unknown as Window
@@ -35,9 +35,9 @@ describe('jendela mini: buka/tutup', () => {
     expect(open).toHaveBeenCalledWith('', 'ritme-mini', expect.stringContaining('width=300'))
   })
 
-  it('PiP ditolak (requestWindow reject): jatuh ke window.open', async () => {
+  it('PiP denied (requestWindow rejects): falls back to window.open', async () => {
     const popup = fakeWindow()
-    const requestWindow = vi.fn().mockRejectedValue(new Error('ditolak'))
+    const requestWindow = vi.fn().mockRejectedValue(new Error('denied'))
     const open = vi.fn().mockReturnValue(popup)
     const host = { documentPictureInPicture: { requestWindow }, open } as unknown as Window
 
@@ -47,7 +47,7 @@ describe('jendela mini: buka/tutup', () => {
     expect(open).toHaveBeenCalledTimes(1)
   })
 
-  it('properti ada tapi tidak bisa dipakai: tetap jatuh ke popup', async () => {
+  it('property exists but is unusable: still falls back to popup', async () => {
     const popup = fakeWindow()
     const open = vi.fn().mockReturnValue(popup)
     const host = { documentPictureInPicture: undefined, open } as unknown as Window
@@ -57,7 +57,7 @@ describe('jendela mini: buka/tutup', () => {
     expect(result).toEqual({ ok: true, kind: 'popup', win: popup })
   })
 
-  it('popup diblokir browser: hasil blocked (layar menampilkan pesan)', async () => {
+  it('popup blocked by the browser: blocked result (screen shows a message)', async () => {
     const open = vi.fn().mockReturnValue(null)
     const host = { open } as unknown as Window
 
@@ -66,7 +66,7 @@ describe('jendela mini: buka/tutup', () => {
     expect(result).toEqual({ ok: false, reason: 'blocked' })
   })
 
-  it('tutup memanggil close pada window-nya', () => {
+  it('close calls close on its window', () => {
     const close = vi.fn()
     const win = { close } as unknown as Window
     closeMiniWindow(win)
@@ -74,8 +74,8 @@ describe('jendela mini: buka/tutup', () => {
   })
 })
 
-describe('jendela mini: dokumen', () => {
-  it('mengklon stylesheet halaman utama, menyalin tema/fase, membuat akar render', () => {
+describe('mini window: document', () => {
+  it('clones the main-page stylesheets, copies theme/phase, creates the render root', () => {
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = '/assets/index.css'
@@ -101,7 +101,7 @@ describe('jendela mini: dokumen', () => {
     document.documentElement.removeAttribute('data-phase')
   })
 
-  it('menghapus atribut di target saat sumber tidak punya nilainya', () => {
+  it('removes attributes on the target when the source has no value', () => {
     const source = document.createElement('div')
     const target = document.createElement('div')
     target.setAttribute('data-theme', 'light')

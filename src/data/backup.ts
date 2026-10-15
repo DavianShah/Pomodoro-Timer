@@ -1,11 +1,11 @@
 /**
- * Ekspor/impor data (PRD F19): CSV sesi untuk dibaca di luar aplikasi dan
- * backup JSON seluruh tabel data. Impor bersifat gabung per id (`bulkPut`),
- * bukan menghapus — file yang sama dipulihkan dua kali tidak menggandakan
- * baris. Pengaturan tidak ikut dipulihkan: preferensi tetap milik perangkat.
+ * Data export/import (PRD F19): session CSV for reading outside the app and
+ * a JSON backup of every data table. Import merges per id (`bulkPut`), it
+ * never deletes — restoring the same file twice does not duplicate rows.
+ * Settings are not restored: preferences stay with the device.
  *
- * Validasi baris longgar tapi eksplisit: baris yang tidak berbentuk benar
- * dibuang dan dihitung `skipped`, bukan membuat seluruh impor gagal.
+ * Row validation is loose but explicit: rows with the wrong shape are
+ * dropped and counted as `skipped`, instead of failing the whole import.
  */
 import {
   db,
@@ -90,24 +90,24 @@ function isPresetRow(row: unknown): row is PresetRow {
   return isRecord(row) && isText(row.id) && isText(row.name) && isNumber(row.focusMs) && isNumber(row.breakMs)
 }
 
-/** Tulis CSV: kutip nilai yang memuat koma/baris baru/kutip (RFC 4180). */
+/** Write CSV: quote values containing commas/newlines/quotes (RFC 4180). */
 function csvCell(value: string): string {
   return /[",\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
 }
 
-/** CSV sesi, urut waktu; BOM supaya Excel membaca UTF-8 dengan benar. */
+/** Session CSV, sorted by time; BOM so Excel reads UTF-8 correctly. */
 export function sessionsToCsv(sessions: SessionRow[], tasks: TaskRow[]): string {
   const titleOf = new Map(tasks.map((task) => [task.id, task.title]))
   const header = [
-    'tanggal',
-    'mulai',
-    'selesai',
-    'metode',
-    'jenis',
-    'rencana_menit',
-    'fokus_menit',
+    'date',
+    'started',
+    'ended',
+    'method',
+    'kind',
+    'planned_min',
+    'focus_min',
     'task',
-    'selesai',
+    'completed',
   ]
   const lines = [header.join(',')]
   for (const session of [...sessions].sort((a, b) => a.startedAt - b.startedAt)) {
@@ -123,8 +123,8 @@ export function sessionsToCsv(sessions: SessionRow[], tasks: TaskRow[]): string 
         session.kind,
         String(Math.round(session.plannedMs / 60_000)),
         String(Math.round(session.actualMs / 60_000)),
-        session.taskId !== undefined ? (titleOf.get(session.taskId) ?? '(dihapus)') : '',
-        session.completed ? 'ya' : 'tidak',
+        session.taskId !== undefined ? (titleOf.get(session.taskId) ?? '(deleted)') : '',
+        session.completed ? 'yes' : 'no',
       ]
         .map(csvCell)
         .join(','),
@@ -156,16 +156,16 @@ export async function buildBackup(now = Date.now()): Promise<BackupData> {
   }
 }
 
-/** Pulihkan (gabung) dari isi berkas backup. */
+/** Restore (merge) from backup file contents. */
 export async function restoreBackup(text: string): Promise<RestoreResult> {
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
   } catch {
-    return { ok: false, error: 'Berkas bukan JSON' }
+    return { ok: false, error: 'File is not JSON' }
   }
   if (!isRecord(parsed) || parsed.app !== 'ritme') {
-    return { ok: false, error: 'Bukan berkas backup Ritme' }
+    return { ok: false, error: 'Not a Ritme backup file' }
   }
   const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : [])
   const raw = {
@@ -191,8 +191,8 @@ export async function restoreBackup(text: string): Promise<RestoreResult> {
       await db.sessions.bulkPut(sessions)
       await db.blocks.bulkPut(blocks)
       await db.presets.bulkPut(presets)
-      // Hitungan sesi per task dihitung ulang dari tabel, bukan dipercaya
-      // dari berkas — sama dengan aturan putFocusSession.
+      // Per-task session counts are recomputed from the table, never trusted
+      // from the file — same rule as putFocusSession.
       const ids = new Set<string>(tasks.map((task) => task.id))
       for (const session of sessions) {
         if (session.taskId !== undefined) ids.add(session.taskId)
@@ -207,8 +207,8 @@ export async function restoreBackup(text: string): Promise<RestoreResult> {
       }
     })
   } catch (error) {
-    console.warn('Ritme: pemulihan backup gagal', error)
-    return { ok: false, error: 'Penyimpanan browser tidak tersedia' }
+    console.warn('Ritme: backup restore failed', error)
+    return { ok: false, error: 'Browser storage is unavailable' }
   }
   return {
     ok: true,
@@ -222,7 +222,7 @@ export async function restoreBackup(text: string): Promise<RestoreResult> {
   }
 }
 
-/** Unduh teks sebagai berkas (anchor + object URL, tanpa dependensi). */
+/** Download text as a file (anchor + object URL, no dependencies). */
 export function downloadFile(name: string, content: string, mime: string): void {
   const url = URL.createObjectURL(new Blob([content], { type: mime }))
   const link = document.createElement('a')
@@ -232,7 +232,7 @@ export function downloadFile(name: string, content: string, mime: string): void 
   URL.revokeObjectURL(url)
 }
 
-/** Nama berkas ekspor bertanggal lokal: `ritme-backup-2026-10-15.json`. */
-export function exportFileName(kind: 'backup' | 'sesi', ext: 'json' | 'csv', now = Date.now()): string {
+/** Local-dated export file name: `ritme-backup-2026-10-15.json`. */
+export function exportFileName(kind: 'backup' | 'sessions', ext: 'json' | 'csv', now = Date.now()): string {
   return `ritme-${kind}-${localDateKey(now)}.${ext}`
 }

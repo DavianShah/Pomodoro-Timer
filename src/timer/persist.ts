@@ -1,7 +1,8 @@
 /**
- * Simpan/pulih TimerState ke localStorage (PRD F8). Penyimpanan terjadi di
- * setiap transisi state, bukan setiap tick. Pulih senyap: endTime yang sudah
- * lewat dianggap sesi selesai tanpa alarm — alarm urusan F5, bukan pemulihan.
+ * Save/restore TimerState to localStorage (PRD F8). Persistence happens on
+ * every state transition, not on every tick. Silent restore: an endTime
+ * already in the past counts as a finished session, without alarm — the
+ * alarm is F5's job, not recovery's.
  */
 
 import { STORAGE_VERSION } from '@/app/constants'
@@ -18,7 +19,7 @@ const isFiniteNumber = (value: unknown): value is number =>
 const isPhase = (value: unknown): value is Phase =>
   value === 'focus' || value === 'break' || value === 'longBreak'
 
-/** true bila objek memiliki bentuk TimerState yang utuh dan bertipe benar. */
+/** true when the object has a complete, correctly typed TimerState shape. */
 export function isTimerShape(value: unknown): value is TimerState {
   if (typeof value !== 'object' || value === null) return false
   const record = value as Record<string, unknown>
@@ -40,13 +41,13 @@ export function saveTimer(state: TimerState): void {
 }
 
 /**
- * Pulihkan timer dari nilai mentah hasil penyimpanan.
+ * Restore the timer from a raw stored value.
  *
- * - berjalan + endTime masih depan → lanjut dari sisa waktu;
- * - berjalan + endTime sudah lewat → sesi selesai, tanpa alarm;
- * - Time Boxing: endTime = akhir blok, tetap tersimpan (penanda prompt);
- * - jaga → pulih apa adanya;
- * - data rusak / tidak konsisten → state awal, tanpa crash.
+ * - running + endTime still ahead → continue from the remaining time;
+ * - running + endTime already past → session finished, without alarm;
+ * - Time Boxing: endTime = block end, kept as-is (prompt marker);
+ * - paused → restore as-is;
+ * - corrupt / inconsistent data → initial state, no crash.
  */
 export function restoreTimer(value: unknown, now: number): TimerState {
   if (!isTimerShape(value)) return createTimer('pomodoro')
@@ -56,19 +57,19 @@ export function restoreTimer(value: unknown, now: number): TimerState {
 
   if (base.running && method.mode === 'countdown') {
     if (base.endTime !== null) {
-      // tick menerapkan "sudah lewat" tanpa efek samping — senyap.
+      // tick applies "already past" without side effects — silently.
       return tick({ ...base, remainingMs: null }, now)
     }
-    // Berjalan tanpa endTime: data tidak konsisten → jadikan jaga.
+    // Running without endTime: inconsistent data → make it paused.
     return pausedFallback(base, method.id)
   }
 
   if (base.running && method.mode === 'boxing') {
     if (base.endTime !== null) {
-      // tick menerapkan "blok sudah lewat" → complete; endTime jadi penanda.
+      // tick applies "block already past" → complete; endTime becomes the marker.
       return tick({ ...base, remainingMs: null }, now)
     }
-    // Berjalan tanpa akhir blok: data tidak konsisten → jadikan jaga.
+    // Running without a block end: inconsistent data → make it paused.
     return pausedFallback(base, method.id)
   }
 
@@ -78,7 +79,7 @@ export function restoreTimer(value: unknown, now: number): TimerState {
     base.phase === 'focus' &&
     base.startedAt !== null
   ) {
-    // Hitung maju: elapsed = akumulasi + waktu sejak mulai, tidak negatif.
+    // Count-up: elapsed = accumulation + time since start, never negative.
     return { ...base, endTime: null, startedAt: Math.min(base.startedAt, now) }
   }
 
@@ -97,7 +98,7 @@ export function restoreTimer(value: unknown, now: number): TimerState {
   return { ...idle, remainingMs: Math.max(0, idle.remainingMs) }
 }
 
-/** Baca dari penyimpanan lalu pulihkan; nilai rusak/tidak ada → state awal. */
+/** Read from storage then restore; corrupt/missing value → initial state. */
 export function loadTimer(now: number): TimerState {
   return restoreTimer(read<unknown>(STORAGE_NAME, null), now)
 }

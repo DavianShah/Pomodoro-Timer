@@ -1,8 +1,8 @@
 /**
- * Panel Jadwal (F16): timeline 24 jam vertikal dengan drag untuk membuat
- * blok dan form keyboard untuk membuat/mengubah. Meniru pola TaskPanel
- * (aside kanan, Escape menutup, header + tombol Tutup). Blok adalah
- * `border-left` aksen di atas kertas — bukan kartu, bukan gradien.
+ * Schedule panel (F16): a vertical 24-hour timeline with drag to create
+ * blocks and a keyboard form to create/edit. Mirrors the TaskPanel pattern
+ * (right aside, Escape closes, header + Close button). A block is an accent
+ * `border-left` on paper — not a card, not a gradient.
  */
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from 'react'
 import type { BlockRow } from '@/db/db'
@@ -15,23 +15,23 @@ interface JadwalPanelProps {
   onClose: () => void
 }
 
-/** 15 menit = 16 px: label satu baris muat, drag cukup presisi. */
+/** 15 minutes = 16 px: a one-line label fits, drag is precise enough. */
 const TIMELINE_HEIGHT = '1536px'
-/** Label jam tiap 3 jam (00:00–24:00) — deret jarum, bukan angka tiap jam. */
+/** Hour label every 3 hours (00:00–24:00) — a sparse ruler, not every hour. */
 const LABEL_STEP = 3
 
 function percent(minute: number): number {
   return (minute / DAY_MIN) * 100
 }
 
-/** Titik Y → menit snap-15, dijepit ke rentang hari. */
+/** Y point → minutes snapped to 15, clamped to the day range. */
 function minuteAt(clientY: number, rect: DOMRect): number {
   const ratio = (clientY - rect.top) / rect.height
   const minute = Math.min(Math.max(ratio * DAY_MIN, 0), DAY_MIN)
   return snapMin(minute)
 }
 
-/** `HH:MM` → menit; format tidak dikenal = null. */
+/** `HH:MM` → minutes; an unrecognized format = null. */
 function parseTime(value: string): number | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value)
   if (match === null) return null
@@ -46,7 +46,7 @@ function parseTime(value: string): number | null {
   return Math.min(h * 60 + m, DAY_MIN)
 }
 
-/** Menit → nilai input `type="time"` (24:00 tetap bisa lewat snap). */
+/** Minutes → `type="time"` input value (24:00 still possible via snap). */
 function toTimeValue(minute: number): string {
   return formatMin(Math.min(minute, DAY_MIN - 1))
 }
@@ -57,7 +57,7 @@ function dateLabel(date: string): string {
     year !== undefined && month !== undefined && day !== undefined
       ? new Date(Number(year), Number(month) - 1, Number(day))
       : new Date()
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     day: 'numeric',
     month: 'short',
@@ -88,14 +88,14 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const panelRef = useRef<HTMLElement>(null)
 
-  // Penanda "sekarang" bergerak perlahan; detik tidak perlu.
+  // The "now" marker moves slowly; seconds are not needed.
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 30_000)
     return () => window.clearInterval(id)
   }, [])
 
-  // Fokus jatuh ke panel begitu terbuka (sama seperti panel task/statistik):
-  // Escape di dalam panel menutup dan tombol Jadwal kembali menerima fokus.
+  // Focus lands on the panel as soon as it opens (same as the task/stats
+  // panels): Escape inside closes it and the Schedule button receives focus again.
   useEffect(() => {
     panelRef.current?.focus()
   }, [])
@@ -133,7 +133,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
     const startMin = parseTime(startInput)
     const endMin = parseTime(endInput)
     if (startMin === null || endMin === null) {
-      setError('Waktu tidak valid')
+      setError('Invalid time')
       return
     }
     const fields = { startMin, endMin, ...(taskId !== '' ? { taskId } : {}) }
@@ -159,7 +159,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
   const onTimelinePointerDown = (event: PointerEvent<HTMLDivElement>): void => {
     const rect = timelineRef.current?.getBoundingClientRect()
     if (rect === undefined) return
-    // Blok punya tombol sendiri — jangan mulai drag di atasnya.
+    // Blocks have their own button — do not start a drag on top of one.
     if (event.target !== event.currentTarget) return
     event.currentTarget.setPointerCapture(event.pointerId)
     const anchor = Math.min(minuteAt(event.clientY, rect), DAY_MIN - 15)
@@ -198,7 +198,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
     <aside
       ref={panelRef}
       id="panel-jadwal"
-      aria-label="Jadwal"
+      aria-label="Schedule"
       tabIndex={-1}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && !formOpen) onClose()
@@ -207,7 +207,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <div>
-          <h2 className="label">Jadwal</h2>
+          <h2 className="label">Schedule</h2>
           <p className="mt-0.5 text-xs text-ink-muted">{dateLabel(date)}</p>
         </div>
         <button
@@ -215,13 +215,13 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
           onClick={onClose}
           className="rounded-md border border-line-strong px-3 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
         >
-          Tutup
+          Close
         </button>
       </div>
 
       {!databaseAvailable ? (
         <p role="status" className="px-4 py-3 text-sm text-ink-muted">
-          Jadwal nonaktif — penyimpanan browser tidak tersedia.
+          Schedule disabled — browser storage is unavailable.
         </p>
       ) : (
         <>
@@ -238,10 +238,10 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
               }}
               className="border-b border-line px-4 py-3"
             >
-              <p className="label">{editingId !== null ? 'Ubah blok' : 'Blok baru'}</p>
+              <p className="label">{editingId !== null ? 'Edit block' : 'New block'}</p>
               <div className="mt-2 flex gap-2">
                 <label className="min-w-0 flex-1 text-xs text-ink-muted">
-                  Mulai
+                  Start
                   <input
                     id="blok-mulai"
                     type="time"
@@ -253,7 +253,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
                   />
                 </label>
                 <label className="min-w-0 flex-1 text-xs text-ink-muted">
-                  Selesai
+                  End
                   <input
                     id="blok-selesai"
                     type="time"
@@ -273,7 +273,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
                   onChange={(event) => setTaskId(event.target.value)}
                   className="mt-1 w-full rounded-md border border-line-strong bg-paper px-2 py-1.5 text-sm text-ink"
                 >
-                  <option value="">Tanpa task</option>
+                  <option value="">No task</option>
                   {tasks.map((task) => (
                     <option key={task.id} value={task.id}>
                       {task.title}
@@ -286,14 +286,14 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
                   type="submit"
                   className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                 >
-                  Simpan
+                  Save
                 </button>
                 <button
                   type="button"
                   onClick={closeForm}
                   className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                 >
-                  Batal
+                  Cancel
                 </button>
                 {editingId !== null && (
                   <button
@@ -301,7 +301,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
                     onClick={deleteCurrent}
                     className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                   >
-                    Hapus
+                    Delete
                   </button>
                 )}
               </div>
@@ -318,7 +318,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
                 onClick={openCreateForm}
                 className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-ink-muted"
               >
-                Tambah blok
+                Add block
               </button>
               {error !== null && (
                 <p role="status" className="mt-2 text-xs text-ink">
@@ -328,7 +328,7 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
             </div>
           )}
 
-          {/* Gulir keyboard: wilayah overflow harus bisa difokus tanpa mouse. */}
+          {/* Keyboard scrolling: an overflow region must be focusable without a mouse. */}
           <div tabIndex={0} className="flex-1 overflow-y-auto px-4 py-3">
             <div
               id="timeline-blok"
@@ -395,10 +395,10 @@ export default function JadwalPanel({ onClose }: JadwalPanelProps) {
             </div>
 
             {blocks.length === 0 && (
-              <p className="mt-3 text-sm text-ink-muted">Belum ada blok hari ini.</p>
+              <p className="mt-3 text-sm text-ink-muted">No blocks today yet.</p>
             )}
             <p className="mt-3 text-xs text-ink-muted">
-              Seret di timeline untuk blok baru, klik blok untuk ubah.
+              Drag on the timeline to create a block, click a block to edit.
             </p>
           </div>
         </>

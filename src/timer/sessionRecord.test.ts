@@ -7,19 +7,19 @@ import { buildFocusSession, focusSessionId, localDateKey } from './sessionRecord
 const T0 = new Date(2026, 0, 5, 8, 0).getTime()
 
 function must(session: SessionRow | null): SessionRow {
-  if (session === null) throw new Error('sesi seharusnya tercatat')
+  if (session === null) throw new Error('the session should have been recorded')
   return session
 }
 
 describe('localDateKey', () => {
-  it('menulis tanggal lokal YYYY-MM-DD', () => {
+  it('writes the local date as YYYY-MM-DD', () => {
     expect(localDateKey(new Date(2026, 0, 5, 8, 30).getTime())).toBe('2026-01-05')
     expect(localDateKey(new Date(2026, 11, 31, 23, 59).getTime())).toBe('2026-12-31')
   })
 })
 
-describe('buildFocusSession — hitung mundur (Pomodoro)', () => {
-  it('auto: selesai penuh → completed, waktu rencana, id stabil lintas now', () => {
+describe('buildFocusSession — countdown (Pomodoro)', () => {
+  it('auto: fully finished → completed, planned time, id stable across now', () => {
     const prev = start(createTimer('pomodoro'), T0)
     const end = T0 + 25 * MINUTE
     const session = must(
@@ -40,7 +40,7 @@ describe('buildFocusSession — hitung mundur (Pomodoro)', () => {
     expect(session.id).toBe(focusSessionId('pomodoro', T0))
   })
 
-  it('skip di tengah → batal, durasi apa adanya, id stabil', () => {
+  it('skipped midway → cancelled, duration as-is, id stable', () => {
     const prev = start(createTimer('pomodoro'), T0)
     const now = T0 + 10 * MINUTE
     const session = must(buildFocusSession({ prev, action: 'skip', now, taskId: null }))
@@ -54,7 +54,7 @@ describe('buildFocusSession — hitung mundur (Pomodoro)', () => {
     expect(retry.id).toBe(session.id)
   })
 
-  it('reset di tengah → batal', () => {
+  it('reset midway → cancelled', () => {
     const prev = start(createTimer('pomodoro'), T0)
     const session = must(
       buildFocusSession({ prev, action: 'reset', now: T0 + 5 * MINUTE, taskId: null }),
@@ -63,8 +63,8 @@ describe('buildFocusSession — hitung mundur (Pomodoro)', () => {
     expect(session.actualMs).toBe(5 * MINUTE)
   })
 
-  it('jeda tidak dihitung sebagai waktu fokus', () => {
-    // Mulai T0, jeda di menit ke-10, dilewati 20 menit kemudian (wall clock).
+  it('paused time does not count as focus time', () => {
+    // Starts at T0, paused at minute 10, skipped 20 minutes later (wall clock).
     const paused = pause(start(createTimer('pomodoro'), T0), T0 + 10 * MINUTE)
     const session = must(
       buildFocusSession({ prev: paused, action: 'skip', now: T0 + 30 * MINUTE, taskId: null }),
@@ -73,7 +73,7 @@ describe('buildFocusSession — hitung mundur (Pomodoro)', () => {
     expect(session.endedAt - session.startedAt).toBe(10 * MINUTE)
   })
 
-  it('idle: lewati/reset saat tidak berjalan → tidak ada sesi', () => {
+  it('idle: skip/reset while not running → no session', () => {
     expect(
       buildFocusSession({ prev: createTimer('pomodoro'), action: 'skip', now: T0, taskId: null }),
     ).toBeNull()
@@ -83,8 +83,8 @@ describe('buildFocusSession — hitung mundur (Pomodoro)', () => {
   })
 })
 
-describe('buildFocusSession — hitung maju (Flowtime)', () => {
-  it('skip = "Selesai" → completed, plannedMs 0', () => {
+describe('buildFocusSession — count-up (Flowtime)', () => {
+  it('skip = "Finish" → completed, plannedMs 0', () => {
     const prev = start(createTimer('flowtime'), T0)
     const now = T0 + 3 * MINUTE
     const session = must(buildFocusSession({ prev, action: 'skip', now, taskId: null }))
@@ -97,8 +97,8 @@ describe('buildFocusSession — hitung maju (Flowtime)', () => {
   })
 })
 
-describe('buildFocusSession — fase lain dan task', () => {
-  it('fase bukan fokus → null (lewatati/reset di jeda tidak mencatat)', () => {
+describe('buildFocusSession — other phases and task', () => {
+  it('a phase that is not focus → null (skip/reset during a break records nothing)', () => {
     const onBreak = skip(start(createTimer('pomodoro'), T0), T0 + 25 * MINUTE)
     expect(onBreak.phase).toBe('break')
     expect(
@@ -109,7 +109,7 @@ describe('buildFocusSession — fase lain dan task', () => {
     ).toBeNull()
   })
 
-  it('taskId menyertainya bila ada, hilang bila tanpa task', () => {
+  it('taskId comes along when present, missing without a task', () => {
     const prev = start(createTimer('pomodoro'), T0)
     const withTask = must(
       buildFocusSession({ prev, action: 'auto', now: T0 + 25 * MINUTE, taskId: 't1' }),
@@ -128,7 +128,7 @@ describe('buildFocusSession — time boxing', () => {
   const blockEnd = T0 + 45 * MINUTE
   const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), T0)
 
-  it('prompt tanpa sesi berjalan (startedAt null) bukan ujung sesi → null', () => {
+  it('the prompt without a running session (startedAt null) is not a session end → null', () => {
     expect(
       buildFocusSession({
         prev: { ...running, running: false, startedAt: null },
@@ -139,7 +139,7 @@ describe('buildFocusSession — time boxing', () => {
     ).toBeNull()
   })
 
-  it('auto: endedAt = akhir blok (bukan now), completed, plannedMs dari blok', () => {
+  it('auto: endedAt = block end (not now), completed, plannedMs from the block', () => {
     const session = must(
       buildFocusSession({
         prev: running,
@@ -158,8 +158,8 @@ describe('buildFocusSession — time boxing', () => {
     expect(session.id).toBe(focusSessionId('timeboxing', T0))
   })
 
-  it('tanpa data blok: plannedMs = durasi aktual; skip (Selesai) = selesai, reset = batal', () => {
-    const selesai = must(
+  it('without block data: plannedMs = actual duration; skip (Finish) = completed, reset = cancelled', () => {
+    const finished = must(
       buildFocusSession({
         prev: running,
         action: 'skip',
@@ -168,11 +168,11 @@ describe('buildFocusSession — time boxing', () => {
       }),
     )
 
-    expect(selesai.completed).toBe(true)
-    expect(selesai.endedAt).toBe(T0 + 10 * MINUTE)
-    expect(selesai.plannedMs).toBe(10 * MINUTE)
+    expect(finished.completed).toBe(true)
+    expect(finished.endedAt).toBe(T0 + 10 * MINUTE)
+    expect(finished.plannedMs).toBe(10 * MINUTE)
 
-    const batal = must(
+    const cancelled = must(
       buildFocusSession({
         prev: running,
         action: 'reset',
@@ -180,7 +180,7 @@ describe('buildFocusSession — time boxing', () => {
         taskId: null,
       }),
     )
-    expect(batal.completed).toBe(false)
-    expect(batal.plannedMs).toBe(12 * MINUTE)
+    expect(cancelled.completed).toBe(false)
+    expect(cancelled.plannedMs).toBe(12 * MINUTE)
   })
 })

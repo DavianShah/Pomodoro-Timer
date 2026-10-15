@@ -1,12 +1,12 @@
 /**
- * Agregasi statistik (F10) dan streak (F11) — fungsi murni.
+ * Stats aggregation (F10) and streaks (F11) — pure functions.
  *
- * Masukan: array `SessionRow` (sudah dibatasi `date` hari ini oleh
- * `loadSessionsThrough`) dan daftar task untuk judul. Tanpa DOM, tanpa Dexie.
+ * Input: an array of `SessionRow` (already limited to today's `date` by
+ * `loadSessionsThrough`) and the task list for titles. No DOM, no Dexie.
  *
- * Aturan hitung (PRD bagian 4): total fokus dan jumlah sesi HANYA dari
- * `completed = true`. Sesi tidak selesai dihitung terpisah lewat
- * `incompleteCountIn` dan tidak pernah masuk total mana pun.
+ * Counting rules (PRD section 4): total focus and session count come ONLY from
+ * `completed = true`. Incomplete sessions are counted separately through
+ * `incompleteCountIn` and never enter any total.
  */
 import type { SessionRow, TaskRow } from '@/db/db'
 import { methodName } from '@/timer/methods'
@@ -28,7 +28,7 @@ export interface GroupStat {
   label: string
   focusMs: number
   completedCount: number
-  /** Sublabel: nama preset Custom; absen untuk metode lain. */
+  /** Sub-label: the Custom preset name; absent for other methods. */
   sub?: string
 }
 
@@ -38,23 +38,23 @@ export interface StreakStat {
 }
 
 export interface StatsView {
-  /** Pernah ada sesi (termasuk tidak selesai). false = tampil satu baris kosong. */
+  /** There has ever been a session (including incomplete). false = show one empty line. */
   hasAnySession: boolean
   today: Totals
-  /** Tujuh hari berakhir hari ini. */
+  /** Seven days ending today. */
   week: Totals
-  /** Sesi tidak selesai dalam jendela 7 hari — satu angka, di luar total. */
+  /** Incomplete sessions in the 7-day window — one number, outside the totals. */
   incompleteCount: number
   streak: StreakStat
-  /** Deret 7 hari, terisi nol, berakhir hari ini. */
+  /** A 7-day series, zero-filled, ending today. */
   days: DayStat[]
   methods: GroupStat[]
   tasks: GroupStat[]
 }
 
 /**
- * Geser kunci `YYYY-MM-DD` lokal. Lewat tengah hari (12:00) supaya aman
- * terhadap perubahan DST, lalu format ulang dengan `localDateKey`.
+ * Shift a local `YYYY-MM-DD` key. It goes through noon (12:00) to stay safe
+ * against DST changes, then formats again with `localDateKey`.
  */
 export function dayOffsetKey(key: string, deltaDays: number): string {
   const date = new Date(`${key}T12:00:00`)
@@ -62,7 +62,7 @@ export function dayOffsetKey(key: string, deltaDays: number): string {
   return localDateKey(date.getTime())
 }
 
-/** `count` kunci hari urut, berakhir di `todayKey`. */
+/** `count` day keys in order, ending at `todayKey`. */
 export function lastDays(todayKey: string, count: number): string[] {
   const keys: string[] = []
   for (let offset = count - 1; offset >= 0; offset -= 1) {
@@ -71,7 +71,7 @@ export function lastDays(todayKey: string, count: number): string[] {
   return keys
 }
 
-/** Kunci tanggal `YYYY-MM-DD` membandingkan benar secara leksikografis. */
+/** `YYYY-MM-DD` date keys compare correctly lexicographically. */
 function within(key: string, fromKey: string, toKey: string): boolean {
   return key >= fromKey && key <= toKey
 }
@@ -87,7 +87,7 @@ export function totalsIn(sessions: SessionRow[], fromKey: string, toKey: string)
   return { focusMs, completedCount }
 }
 
-/** Jumlah sesi fokus selesai satu metode pada satu hari (nudge Ultradian). */
+/** Completed focus sessions for one method on one day (Ultradian nudge). */
 export function completedCountForMethod(
   sessions: SessionRow[],
   methodId: string,
@@ -108,7 +108,7 @@ export function incompleteCountIn(sessions: SessionRow[], fromKey: string, toKey
   return count
 }
 
-/** Deret harian untuk `days`; tanggal tanpa sesi lengkapi nol. */
+/** Daily series for `days`; dates without sessions are zero-filled. */
 export function dailySeries(sessions: SessionRow[], days: string[]): DayStat[] {
   const byDate = new Map<string, DayStat>(
     days.map((date) => [date, { date, focusMs: 0, completedCount: 0 }]),
@@ -149,11 +149,11 @@ function groupSessions(
     (a, b) =>
       b.focusMs - a.focusMs ||
       b.completedCount - a.completedCount ||
-      a.key.localeCompare(b.key, 'id'),
+      a.key.localeCompare(b.key, 'en'),
   )
 }
 
-/** Per metode, fokus turun; label = nama metode, sublabel = preset Custom. */
+/** Per method, focus descending; label = method name, sub-label = Custom preset. */
 export function groupByMethod(sessions: SessionRow[], fromKey: string, toKey: string): GroupStat[] {
   const subOf = new Map<string, string[]>()
   for (const session of sessions) {
@@ -173,7 +173,7 @@ export function groupByMethod(sessions: SessionRow[], fromKey: string, toKey: st
   })
 }
 
-/** Per task, fokus turun; judul dari daftar task, task hilang = `(dihapus)`. */
+/** Per task, focus descending; titles from the task list, missing task = `(deleted)`. */
 export function groupByTask(
   sessions: SessionRow[],
   tasks: TaskRow[],
@@ -183,14 +183,15 @@ export function groupByTask(
   const titleOf = new Map(tasks.map((task) => [task.id, task.title]))
   return groupSessions(sessions, fromKey, toKey, (session) => session.taskId).map((group) => ({
     ...group,
-    label: titleOf.get(group.key) ?? '(dihapus)',
+    label: titleOf.get(group.key) ?? '(deleted)',
   }))
 }
 
 /**
- * Streak dari sesi completed: `current` dihitung mundur dari hari ini
- * (hari ini boleh masih kosong selama kemarin ada — putus hanya saat kemarin
- * kosong); `longest` = run hari berurutan terpanjang di seluruh riwayat.
+ * Streak from completed sessions: `current` counts back from today
+ * (today may still be empty as long as yesterday has one — it only breaks
+ * when yesterday is empty); `longest` = the longest run of consecutive days
+ * in the whole history.
  */
 export function computeStreaks(sessions: SessionRow[], todayKey: string): StreakStat {
   const days = new Set<string>()
@@ -223,7 +224,7 @@ export interface StatsInput {
   todayKey: string
 }
 
-/** Susun seluruh tampilan panel statistik dalam satu panggilan. */
+/** Assemble the whole stats panel view in one call. */
 export function buildStats({ sessions, tasks, todayKey }: StatsInput): StatsView {
   const days = lastDays(todayKey, 7)
   const weekFrom = days[0] ?? todayKey
@@ -239,24 +240,24 @@ export function buildStats({ sessions, tasks, todayKey }: StatsInput): StatsView
   }
 }
 
-/** Durasi fokus sebagai teks datar: "45 menit", "1 jam", "1 jam 5 menit". */
+/** Focus duration as plain text: "45 min", "1 hr", "1 hr 5 min". */
 export function formatFocusMs(ms: number): string {
   const totalMinutes = Math.floor(ms / 60_000)
-  if (totalMinutes <= 0) return '0 menit'
+  if (totalMinutes <= 0) return '0 min'
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
-  if (hours === 0) return `${totalMinutes} menit`
-  if (minutes === 0) return `${hours} jam`
-  return `${hours} jam ${minutes} menit`
+  if (hours === 0) return `${totalMinutes} min`
+  if (minutes === 0) return `${hours} hr`
+  return `${hours} hr ${minutes} min`
 }
 
-/** Label sumbu grafik yang pendek: "45m", "2j", "1j50m". */
+/** Short chart-axis label: "45m", "2h", "1h50m". */
 export function formatFocusShort(ms: number): string {
   const totalMinutes = Math.floor(ms / 60_000)
   if (totalMinutes <= 0) return '0m'
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
   if (hours === 0) return `${totalMinutes}m`
-  if (minutes === 0) return `${hours}j`
-  return `${hours}j${minutes}m`
+  if (minutes === 0) return `${hours}h`
+  return `${hours}h${minutes}m`
 }

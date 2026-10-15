@@ -9,27 +9,27 @@ beforeEach(() => {
 })
 
 describe('UpdateNotice (F15)', () => {
-  it('tanpa pembaruan: tidak ada baris', () => {
+  it('without an update: no row', () => {
     render(<UpdateNotice running={false} />)
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('timer berjalan: baris ditahan sampai timer berhenti', () => {
+  it('timer running: the row is held back until the timer stops', () => {
     useSwUpdate.setState({ ready: true })
     render(<UpdateNotice running />)
     expect(screen.queryByRole('status')).toBeNull()
 
     render(<UpdateNotice running={false} />)
-    expect(screen.getByRole('status')).toHaveTextContent('Versi baru tersedia.')
+    expect(screen.getByRole('status')).toHaveTextContent('A new version is available.')
   })
 
-  it('muat ulang diputuskan user lewat tombol, tanpa reload otomatis', async () => {
+  it('the user decides to reload via the button, no automatic reload', async () => {
     const reload = vi.fn()
     useSwUpdate.setState({ ready: true, reload })
     render(<UpdateNotice running={false} />)
 
-    expect(screen.getByRole('status')).toHaveTextContent('Versi baru tersedia.')
-    await userEvent.click(screen.getByRole('button', { name: 'Muat ulang' }))
+    expect(screen.getByRole('status')).toHaveTextContent('A new version is available.')
+    await userEvent.click(screen.getByRole('button', { name: 'Reload' }))
     expect(reload).toHaveBeenCalledTimes(1)
   })
 })

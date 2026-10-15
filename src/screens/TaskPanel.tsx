@@ -7,8 +7,8 @@ interface TaskPanelProps {
 }
 
 /**
- * Panel task (F9): daftar bergaris 1px, tanpa ikon — bukan tumpukan kartu.
- * Dirmount hanya saat terbuka (focus input jatuh ke tempatnya sendiri).
+ * Task panel (F9): a list ruled with 1px lines, no icons — not a stack of
+ * cards. Mounted only while open (focus input lands where it belongs).
  */
 export default function TaskPanel({ onClose }: TaskPanelProps) {
   const tasks = useTasks((state) => state.tasks)
@@ -69,36 +69,36 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
           onClick={onClose}
           className="rounded-md border border-line-strong px-3 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
         >
-          Tutup
+          Close
         </button>
       </div>
 
       {!databaseAvailable ? (
         <p role="status" className="px-4 py-3 text-sm text-ink-muted">
-          Task nonaktif — penyimpanan browser tidak tersedia.
+          Tasks disabled — browser storage is unavailable.
         </p>
       ) : (
         <>
           <form onSubmit={submitNew} className="border-b border-line px-4 py-3">
             <label htmlFor="task-baru" className="sr-only">
-              Task baru
+              New task
             </label>
             <input
               id="task-baru"
               ref={inputRef}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Nama task"
+              placeholder="Task name"
               autoComplete="off"
               className="w-full rounded-md border border-line-strong bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-muted"
             />
-            <p className="mt-1.5 text-xs text-ink-muted">Enter untuk menambah.</p>
+            <p className="mt-1.5 text-xs text-ink-muted">Enter to add.</p>
           </form>
 
-          {/* Gulir keyboard: wilayah overflow harus bisa difokus tanpa mouse. */}
+          {/* Keyboard scrolling: an overflow region must be focusable without a mouse. */}
           <ul tabIndex={0} className="flex-1 overflow-y-auto">
             {tasks.length === 0 && (
-              <li className="px-4 py-3 text-sm text-ink-muted">Belum ada task.</li>
+              <li className="px-4 py-3 text-sm text-ink-muted">No tasks yet.</li>
             )}
             {tasks.map((task) => {
               if (editingId === task.id) {
@@ -106,7 +106,7 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
                   <li key={task.id} className="border-b border-line px-4 py-2">
                     <form onSubmit={submitEdit} onKeyDown={onRowKeyDown}>
                       <label htmlFor={`ubah-${task.id}`} className="sr-only">
-                        Ubah judul task
+                        Edit task title
                       </label>
                       <input
                         id={`ubah-${task.id}`}
@@ -115,7 +115,7 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
                         onChange={(event) => setEditDraft(event.target.value)}
                         className="w-full rounded-md border border-line-strong bg-paper px-2 py-1.5 text-sm text-ink"
                       />
-                      <p className="mt-1 text-xs text-ink-muted">Enter simpan, Esc batal.</p>
+                      <p className="mt-1 text-xs text-ink-muted">Enter saves, Esc cancels.</p>
                     </form>
                   </li>
                 )
@@ -155,7 +155,7 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
                         'angka block text-xs ' + (selected ? 'opacity-75' : 'text-ink-muted')
                       }
                     >
-                      {task.sessionCount} sesi
+                      {task.sessionCount} sessions
                     </span>
                   </button>
                   <button
@@ -163,21 +163,21 @@ export default function TaskPanel({ onClose }: TaskPanelProps) {
                     onClick={() => void toggleDone(task.id)}
                     className="rounded-md border border-line-strong px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                   >
-                    {task.doneAt ? 'Aktifkan' : 'Selesai'}
+                    {task.doneAt ? 'Reactivate' : 'Complete'}
                   </button>
                   <button
                     type="button"
                     onClick={() => startEdit(task.id, task.title)}
                     className="rounded-md border border-line-strong px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                   >
-                    Ubah
+                    Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => void remove(task.id)}
                     className="rounded-md border border-line-strong px-2 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
                   >
-                    Hapus
+                    Delete
                   </button>
                 </li>
               )

@@ -19,7 +19,7 @@ export default defineConfig({
       injectRegister: null,
       manifest: false,
       workbox: {
-        // woff2 ikut supaya font termuat penuh saat offline (PRD bagian 10).
+        // woff2 included so fonts load fully while offline (PRD section 10).
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
         navigateFallback: '/index.html',
       },

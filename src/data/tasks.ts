@@ -1,8 +1,8 @@
 /**
- * Repository task (PRD bagian 9). Satu-satunya tempat komponen/store
- * berurutan dengan tabel `tasks` lewat fungsi ini — Dexie tidak dipanggil
- * dari UI. Semua fungsi melempar error saat IndexedDB gagal; penanganan
- * gagal ada di pemanggil (store), bukan di sini.
+ * Task repository (PRD section 9). The only place components/stores touch
+ * the `tasks` table, through these functions — Dexie is never called from
+ * the UI. Every function throws when IndexedDB fails; failure handling
+ * lives in the caller (the store), not here.
  */
 import { db, type TaskRow } from '@/db/db'
 
@@ -20,7 +20,7 @@ export async function renameTask(id: string, title: string): Promise<void> {
   await db.tasks.update(id, { title })
 }
 
-/** Tandai selesai (`doneAt`) atau kembalikan jadi aktif (`null`). */
+/** Mark done (`doneAt`) or make active again (`null`). */
 export async function setTaskDone(id: string, doneAt: number | null): Promise<void> {
   await db.tasks.update(id, { doneAt: doneAt ?? undefined })
 }

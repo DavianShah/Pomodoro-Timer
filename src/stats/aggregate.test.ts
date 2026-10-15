@@ -41,15 +41,15 @@ function task(id: string, title: string): TaskRow {
   return { id, title, createdAt: 0, sessionCount: 0 }
 }
 
-describe('dayOffsetKey dan lastDays', () => {
-  it('melewati batas bulan dan tahun', () => {
+describe('dayOffsetKey and lastDays', () => {
+  it('crosses month and year boundaries', () => {
     expect(dayOffsetKey('2025-12-31', 1)).toBe('2026-01-01')
     expect(dayOffsetKey('2026-01-01', -1)).toBe('2025-12-31')
     expect(dayOffsetKey('2026-03-01', -1)).toBe('2026-02-28')
     expect(dayOffsetKey('2024-03-01', -1)).toBe('2024-02-29')
   })
 
-  it('membentuk tujuh hari yang berakhir di hari ini', () => {
+  it('builds seven days ending today', () => {
     expect(lastDays(TODAY, 7)).toEqual([
       '2026-09-25',
       '2026-09-26',
@@ -63,34 +63,34 @@ describe('dayOffsetKey dan lastDays', () => {
 })
 
 describe('formatFocusMs', () => {
-  it('menulis datar tanpa desimal', () => {
-    expect(formatFocusMs(0)).toBe('0 menit')
-    expect(formatFocusMs(59_000)).toBe('0 menit')
-    expect(formatFocusMs(45 * MIN)).toBe('45 menit')
-    expect(formatFocusMs(60 * MIN)).toBe('1 jam')
-    expect(formatFocusMs(65 * MIN)).toBe('1 jam 5 menit')
-    expect(formatFocusMs(120 * MIN)).toBe('2 jam')
+  it('writes plain text without decimals', () => {
+    expect(formatFocusMs(0)).toBe('0 min')
+    expect(formatFocusMs(59_000)).toBe('0 min')
+    expect(formatFocusMs(45 * MIN)).toBe('45 min')
+    expect(formatFocusMs(60 * MIN)).toBe('1 hr')
+    expect(formatFocusMs(65 * MIN)).toBe('1 hr 5 min')
+    expect(formatFocusMs(120 * MIN)).toBe('2 hr')
   })
 })
 
 describe('formatFocusShort', () => {
-  it('pendek untuk label sumbu', () => {
+  it('short for axis labels', () => {
     expect(formatFocusShort(0)).toBe('0m')
     expect(formatFocusShort(45 * MIN)).toBe('45m')
-    expect(formatFocusShort(60 * MIN)).toBe('1j')
-    expect(formatFocusShort(110 * MIN)).toBe('1j50m')
+    expect(formatFocusShort(60 * MIN)).toBe('1h')
+    expect(formatFocusShort(110 * MIN)).toBe('1h50m')
   })
 })
 
-describe('totalsIn dan incompleteCountIn', () => {
+describe('totalsIn and incompleteCountIn', () => {
   const sessions = [
-    session({ id: 'hari-ini', date: TODAY, actualMs: 25 * MIN }),
-    session({ id: 'tidak-selesai', date: TODAY, completed: false, actualMs: 20 * MIN }),
-    session({ id: 'kemarin', date: YESTERDAY, actualMs: 10 * MIN }),
-    session({ id: 'masa-depan', date: '2026-10-10', actualMs: 25 * MIN }),
+    session({ id: 'today', date: TODAY, actualMs: 25 * MIN }),
+    session({ id: 'incomplete', date: TODAY, completed: false, actualMs: 20 * MIN }),
+    session({ id: 'yesterday', date: YESTERDAY, actualMs: 10 * MIN }),
+    session({ id: 'future', date: '2026-10-10', actualMs: 25 * MIN }),
   ]
 
-  it('hanya completed dan hanya dalam rentang tanggal', () => {
+  it('only completed and only within the date range', () => {
     expect(totalsIn(sessions, WEEK_START, TODAY)).toEqual({
       focusMs: 35 * MIN,
       completedCount: 2,
@@ -101,14 +101,14 @@ describe('totalsIn dan incompleteCountIn', () => {
     })
   })
 
-  it('tidak selesai dihitung terpisah, tidak masuk total', () => {
+  it('incomplete sessions are counted separately, never in the totals', () => {
     expect(incompleteCountIn(sessions, WEEK_START, TODAY)).toBe(1)
     expect(incompleteCountIn(sessions, YESTERDAY, YESTERDAY)).toBe(0)
   })
 })
 
 describe('dailySeries', () => {
-  it('tujuh entri terisi nol dan sesi menempel di tanggalnya', () => {
+  it('seven zero-filled entries with sessions attached to their date', () => {
     const days = lastDays(TODAY, 7)
     const series = dailySeries(
       [
@@ -128,7 +128,7 @@ describe('dailySeries', () => {
 })
 
 describe('groupByMethod', () => {
-  it('urut fokus turun dengan nama metode', () => {
+  it('sorted by focus descending with method names', () => {
     const groups = groupByMethod(
       [
         session({ id: 'p1', date: TODAY, actualMs: 25 * MIN }),
@@ -155,7 +155,7 @@ describe('groupByMethod', () => {
     })
   })
 
-  it('fokus sama: jumlah sesi menentukan urutan', () => {
+  it('equal focus: session count decides the order', () => {
     const groups = groupByMethod(
       [
         session({ id: 'p1', date: TODAY, actualMs: 30 * MIN }),
@@ -170,36 +170,36 @@ describe('groupByMethod', () => {
   })
 })
 
-describe('groupByMethod metode Custom', () => {
-  it('sesi Custom dikelompokkan di bawah "Custom" dengan sublabel nama preset', () => {
+describe('groupByMethod with the Custom method', () => {
+  it('Custom sessions group under "Custom" with the preset name as sub-label', () => {
     const sessions = [
-      session({ date: TODAY, method: 'custom', methodLabel: 'Pulih' }),
-      session({ date: TODAY, method: 'custom', methodLabel: 'Pulih' }),
+      session({ date: TODAY, method: 'custom', methodLabel: 'Recovery' }),
+      session({ date: TODAY, method: 'custom', methodLabel: 'Recovery' }),
       session({ date: TODAY, method: 'pomodoro' }),
     ]
 
     const groups = groupByMethod(sessions, TODAY, TODAY)
     const custom = groups.find((group) => group.key === 'custom')
     expect(custom?.label).toBe('Custom')
-    expect(custom?.sub).toBe('Pulih')
+    expect(custom?.sub).toBe('Recovery')
     expect(custom?.completedCount).toBe(2)
     expect(groups.find((group) => group.key === 'pomodoro')?.sub).toBeUndefined()
   })
 
-  it('beberapa preset digabung; sesi tanpa preset tidak menambah sublabel', () => {
+  it('several presets are joined; a session without a preset adds no sub-label', () => {
     const sessions = [
-      session({ date: TODAY, method: 'custom', methodLabel: 'Pagi' }),
-      session({ date: TODAY, method: 'custom', methodLabel: 'Malam' }),
+      session({ date: TODAY, method: 'custom', methodLabel: 'Morning' }),
+      session({ date: TODAY, method: 'custom', methodLabel: 'Evening' }),
       session({ date: TODAY, method: 'custom' }),
     ]
 
     const groups = groupByMethod(sessions, TODAY, TODAY)
     expect(groups[0]?.label).toBe('Custom')
-    expect(groups[0]?.sub).toBe('Pagi, Malam')
+    expect(groups[0]?.sub).toBe('Morning, Evening')
     expect(groups[0]?.completedCount).toBe(3)
   })
 
-  it('sesi Custom lama tanpa nama metode tetap terbaca sebagai Custom', () => {
+  it('old Custom sessions without a method name still read as Custom', () => {
     const groups = groupByMethod([session({ date: TODAY, method: 'custom' })], TODAY, TODAY)
     expect(groups[0]?.label).toBe('Custom')
     expect(groups[0]?.sub).toBeUndefined()
@@ -207,7 +207,7 @@ describe('groupByMethod metode Custom', () => {
 })
 
 describe('groupByTask', () => {
-  it('judul dari daftar task, task hilang jadi (dihapus), tanpa task dilewati', () => {
+  it('titles from the task list, a missing task becomes (deleted), no task is skipped', () => {
     const groups = groupByTask(
       [
         session({ id: 'p1', date: TODAY, taskId: 't1', actualMs: 25 * MIN }),
@@ -216,7 +216,7 @@ describe('groupByTask', () => {
         session({ id: 'p4', date: TODAY, actualMs: 25 * MIN }),
         session({ id: 'p5', date: TODAY, taskId: 't1', completed: false, actualMs: 3 * MIN }),
       ],
-      [task('t1', 'Tulis laporan')],
+      [task('t1', 'Write report')],
       WEEK_START,
       TODAY,
     )
@@ -224,13 +224,13 @@ describe('groupByTask', () => {
     expect(groups).toHaveLength(2)
     expect(groups[0]).toEqual({
       key: 't1',
-      label: 'Tulis laporan',
+      label: 'Write report',
       focusMs: 50 * MIN,
       completedCount: 2,
     })
     expect(groups[1]).toEqual({
       key: 't404',
-      label: '(dihapus)',
+      label: '(deleted)',
       focusMs: 10 * MIN,
       completedCount: 1,
     })
@@ -238,30 +238,30 @@ describe('groupByTask', () => {
 })
 
 describe('computeStreaks', () => {
-  it('tanpa data = nol', () => {
+  it('no data = zero', () => {
     expect(computeStreaks([], TODAY)).toEqual({ current: 0, longest: 0 })
   })
 
-  it('hanya hari ini = satu hari', () => {
+  it('today only = one day', () => {
     expect(computeStreaks([session({ date: TODAY })], TODAY)).toEqual({
       current: 1,
       longest: 1,
     })
   })
 
-  it('kemarin ada, hari ini belum: streak belum putus', () => {
+  it('yesterday has one, today not yet: the streak is not broken', () => {
     expect(computeStreaks([session({ date: YESTERDAY })], TODAY)).toEqual({
       current: 1,
       longest: 1,
     })
   })
 
-  it('hari ini dan kemarin berurutan = dua hari', () => {
+  it('today and yesterday consecutive = two days', () => {
     const rows = [session({ date: TODAY }), session({ date: YESTERDAY })]
     expect(computeStreaks(rows, TODAY)).toEqual({ current: 2, longest: 2 })
   })
 
-  it('selang satu hari memutus; run lama tetap terpanjang', () => {
+  it('a one-day gap breaks it; the old run stays the longest', () => {
     const rows = [
       session({ date: '2026-09-27' }),
       session({ date: '2026-09-28' }),
@@ -271,7 +271,7 @@ describe('computeStreaks', () => {
     expect(computeStreaks(rows, TODAY)).toEqual({ current: 2, longest: 2 })
   })
 
-  it('banyak sesi dalam satu hari tetap dihitung satu hari', () => {
+  it('many sessions in one day still count as one day', () => {
     const rows = [
       session({ id: 'a', date: TODAY }),
       session({ id: 'b', date: TODAY }),
@@ -280,12 +280,12 @@ describe('computeStreaks', () => {
     expect(computeStreaks(rows, TODAY)).toEqual({ current: 2, longest: 2 })
   })
 
-  it('hanya sesi tidak selesai = nol', () => {
+  it('only incomplete sessions = zero', () => {
     const rows = [session({ date: TODAY, completed: false })]
     expect(computeStreaks(rows, TODAY)).toEqual({ current: 0, longest: 0 })
   })
 
-  it('lintas batas bulan dan tahun', () => {
+  it('across month and year boundaries', () => {
     const rows = [
       session({ date: '2025-12-30' }),
       session({ date: '2025-12-31' }),
@@ -294,7 +294,7 @@ describe('computeStreaks', () => {
     expect(computeStreaks(rows, '2026-01-01')).toEqual({ current: 3, longest: 3 })
   })
 
-  it('run terpanjang boleh bukan di ujung riwayat', () => {
+  it('the longest run may not be at the end of the history', () => {
     const rows = [
       session({ id: 'a', date: '2026-09-23' }),
       session({ id: 'b', date: '2026-09-24' }),
@@ -305,7 +305,7 @@ describe('computeStreaks', () => {
     expect(computeStreaks(rows, TODAY)).toEqual({ current: 2, longest: 3 })
   })
 
-  it('data lama tanpa kemarin: streak sekarang nol, terpanjang tersimpan', () => {
+  it('old data without yesterday: current streak zero, longest kept', () => {
     const rows = [
       session({ id: 'a', date: '2026-09-21' }),
       session({ id: 'b', date: '2026-09-22' }),
@@ -316,7 +316,7 @@ describe('computeStreaks', () => {
 })
 
 describe('buildStats', () => {
-  it('menyusun seluruh tampilan dalam satu panggilan', () => {
+  it('assembles the whole view in one call', () => {
     const view = buildStats({
       sessions: [
         session({ id: 'p1', date: TODAY, taskId: 't1', actualMs: 25 * MIN }),
@@ -325,7 +325,7 @@ describe('buildStats', () => {
         session({ id: 'x1', date: TODAY, completed: false, actualMs: 4 * MIN }),
         session({ id: 'y1', date: YESTERDAY, actualMs: 25 * MIN }),
       ],
-      tasks: [task('t1', 'Tulis laporan')],
+      tasks: [task('t1', 'Write report')],
       todayKey: TODAY,
     })
 
@@ -348,13 +348,13 @@ describe('buildStats', () => {
       completedCount: 1,
     })
     expect(view.tasks[0]).toMatchObject({
-      label: 'Tulis laporan',
+      label: 'Write report',
       focusMs: 50 * MIN,
       completedCount: 2,
     })
   })
 
-  it('tanpa sesi: penanda kosong dan angka nol', () => {
+  it('no sessions: the empty marker and zeroed numbers', () => {
     const view = buildStats({ sessions: [], tasks: [], todayKey: TODAY })
 
     expect(view.hasAnySession).toBe(false)
@@ -368,7 +368,7 @@ describe('buildStats', () => {
     expect(view.tasks).toEqual([])
   })
 
-  it('data di luar jendela 7 hari tidak masuk mingguan', () => {
+  it('data outside the 7-day window does not enter the weekly totals', () => {
     const view = buildStats({
       sessions: [session({ date: '2026-09-10', actualMs: 25 * MIN })],
       tasks: [],
@@ -382,7 +382,7 @@ describe('buildStats', () => {
 })
 
 describe('completedCountForMethod', () => {
-  it('hanya metode dan tanggal yang diminta, dan hanya yang selesai', () => {
+  it('only the requested method and date, and only completed ones', () => {
     const sessions = [
       session({ date: TODAY, method: 'ultradian' }),
       session({ date: TODAY, method: 'ultradian' }),

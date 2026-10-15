@@ -1,24 +1,24 @@
 /**
- * Shortcut keyboard (PRD F7): Spasi mulai/jeda, R reset, S lewati,
- * M jendela mini, 1-5 ganti metode saat idle. Mati saat fokus di
- * input/textarea/select, saat ada modifier, dan saat key auto-repeat.
- * Spasi tidak men-scroll.
+ * Keyboard shortcuts (PRD F7): Space start/pause, R reset, S skip,
+ * M mini window, 1-5 switch methods while idle. Disabled while focus is in
+ * an input/textarea/select, with modifiers held, and on key auto-repeat.
+ * Space does not scroll.
  *
- * Spasi menjalankan semantik shortcut global di mana pun fokus, kecuali
- * di input. Aktivasi native dicegah hanya pada tombol aksi utama
- * ([data-primary-action]): labelnya berubah di bawah fokus (Mulai → Jeda
- * → Mulai, atau Mulai → Selesai di Time Boxing), sehingga Spasi bisa
- * mengaktifkan label baru yang salah. Enter dan klik tetap mengaktifkan
- * tombol utama; tombol/link lain mempertahankan aktivasi native Spasi
- * (perilaku aksesibilitas standar).
+ * Space performs the global shortcut semantics wherever focus is, except
+ * in inputs. Native activation is prevented only on the primary action
+ * button ([data-primary-action]): its label changes underneath focus
+ * (Start → Pause → Start, or Start → Finish in Time Boxing), so Space
+ * could trigger the wrong new label. Enter and click still activate the
+ * primary button; other buttons/links keep native Space activation
+ * (standard accessibility behavior).
  *
- * Time Boxing berbeda: Spasi hanya memulai (butuh blok aktif) dan saat
- * berjalan tidak melakukan apa-apa — blok ditutup lewat tombol Selesai
- * atau shortcut S, tidak lewat Spasi.
+ * Time Boxing differs: Space only starts (needs an active block) and does
+ * nothing while running — the block is closed via the Finish button or the
+ * S shortcut, not via Space.
  *
- * Listener dipasang di window yang diberikan — halaman utama memakai
- * window-nya sendiri, jendela mini memasang listener di window mini
- * supaya spasi/R jalan saat fokus di sana.
+ * Listeners attach to the given window — the main page uses its own window,
+ * the mini window attaches listeners inside the mini window so Space/R work
+ * when focus is there.
  */
 
 import { useCallback, useEffect, useRef } from 'react'
@@ -33,16 +33,17 @@ export interface ShortcutOptions {
   pause: () => void
   skip: () => void
   reset: () => void
-  /** Toggle jendela mini (F4). */
+  /** Toggle the mini window (F4). */
   onMini: (() => void) | null
-  /** Toggle panel task (F9). */
+  /** Toggle the task panel (F9). */
   onTasks: (() => void) | null
   selectMethod: (index: number) => void
 }
 
 /**
- * Selector di dekat target. `instanceof Element` tidak dipakai: elemen di
- * jendela mini berasal dari realm document lain dan gagal instanceof.
+ * Selector lookup near the target. `instanceof Element` is not used:
+ * elements in the mini window come from a different document realm and
+ * fail the instanceof check.
  */
 function near(node: EventTarget | null, selector: string): Element | null {
   const el = node as Element | null
@@ -63,9 +64,9 @@ export function useShortcuts(options: ShortcutOptions, host: Window = window): v
       const opts = optionsRef.current
 
       if (event.key === ' ') {
-        // Tombol aksi utama: labelnya berubah di bawah fokus, jadi aktivasi
-        // native Spasi dimatikan (keydown + keyup) supaya hanya semantik
-        // shortcut yang jalan. Tombol/link lain dibiarkan native.
+        // Primary action button: its label changes underneath focus, so native
+        // Space activation is suppressed (keydown + keyup) so only the shortcut
+        // semantics run. Other buttons/links stay native.
         const primary = near(event.target, '[data-primary-action]') !== null
         const control = near(event.target, 'button, a') !== null
         if (primary || !control) event.preventDefault()
@@ -88,8 +89,8 @@ export function useShortcuts(options: ShortcutOptions, host: Window = window): v
     }
 
     const onKeyUp = (event: KeyboardEvent): void => {
-      // Beberapa mesin mengaktifkan tombol saat keyup Spasi; dibatalkan
-      // hanya untuk tombol aksi utama (lihat catatan di onKeyDown).
+      // Some engines activate buttons on Space keyup; suppressed only for the
+      // primary action button (see the note in onKeyDown).
       if (event.key === ' ' && near(event.target, '[data-primary-action]') !== null) {
         event.preventDefault()
       }
@@ -105,22 +106,22 @@ export function useShortcuts(options: ShortcutOptions, host: Window = window): v
 }
 
 export interface TimerShortcutHooks {
-  /** Toggle jendela mini; null = tidak aktif. */
+  /** Toggle the mini window; null = inactive. */
   onMini?: (() => void) | null
-  /** Toggle panel task; null = tidak aktif. */
+  /** Toggle the task panel; null = inactive. */
   onTasks?: (() => void) | null
-  /** Window penerima listener; default halaman utama. */
+  /** Window receiving the listeners; defaults to the main page. */
   host?: Window
 }
 
-/** Aksi sengaja kosong (mis. Spasi saat Time Boxing berjalan). */
+/** Deliberately empty action (e.g. Space while Time Boxing is running). */
 const noop = (): void => {}
 
-/** Shortcut alur timer — dipakai layar utama dan jendela mini (F4). */
+/** Timer-flow shortcuts — used by the main screen and the mini window (F4). */
 export function useTimerShortcuts(timer: TimerApi, hooks: TimerShortcutHooks = {}): void {
   const setLastMethod = useSettings((state) => state.setLastMethod)
   const { onMini = null, onTasks = null, host } = hooks
-  // Time Boxing: Spasi saat berjalan tidak mengakhiri blok (PRD F7).
+  // Time Boxing: Space while running does not end the block (PRD F7).
   const boxing = methodById(timer.state.method).mode === 'boxing'
 
   const selectMethod = useCallback(

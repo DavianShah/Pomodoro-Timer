@@ -2,14 +2,15 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { resolveTheme, useSettings } from '@/state/settings'
 
-/** Token tema dipasang di <html>, jadi satu set variabel CSS melayani seluruh halaman. */
+/** Theme tokens are applied on <html>, so one set of CSS variables serves the whole page. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const theme = useSettings((state) => state.settings.theme)
   const settingsLoaded = useSettings((state) => state.settingsLoaded)
 
   useEffect(() => {
-    // Nilai awal sudah dipasang theme-boot.js sebelum render pertama. Tunggu
-    // pengaturan tersimpan supaya default 'system' tidak menimpanya (kilatan).
+    // The initial value is already applied by theme-boot.js before the first
+    // render. Wait for stored settings so the 'system' default does not
+    // override it (flash).
     if (!settingsLoaded) return
     const query = window.matchMedia('(prefers-color-scheme: dark)')
     const apply = () => {

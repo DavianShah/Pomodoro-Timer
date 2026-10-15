@@ -19,7 +19,7 @@ function makeSession(overrides: Partial<SessionRow> = {}): SessionRow {
 }
 
 function makeTask(overrides: Partial<TaskRow> = {}): TaskRow {
-  return { id: 't1', title: 'Laporan', createdAt: 1, sessionCount: 0, ...overrides }
+  return { id: 't1', title: 'Report', createdAt: 1, sessionCount: 0, ...overrides }
 }
 
 function makeBlock(overrides: Partial<BlockRow> = {}): BlockRow {
@@ -27,7 +27,7 @@ function makeBlock(overrides: Partial<BlockRow> = {}): BlockRow {
 }
 
 function makePreset(overrides: Partial<PresetRow> = {}): PresetRow {
-  return { id: 'p1', name: 'Pagi', focusMs: 60_000, breakMs: 60_000, ...overrides }
+  return { id: 'p1', name: 'Morning', focusMs: 60_000, breakMs: 60_000, ...overrides }
 }
 
 beforeEach(async () => {
@@ -36,35 +36,35 @@ beforeEach(async () => {
 })
 
 describe('sessionsToCsv', () => {
-  it('header, BOM, urutan waktu, dan task yang dihapus ditandai', () => {
+  it('header, BOM, time order, and deleted tasks are flagged', () => {
     const csv = sessionsToCsv(
       [
-        makeSession({ id: 'b', startedAt: 2_000, taskId: 'hilang' }),
+        makeSession({ id: 'b', startedAt: 2_000, taskId: 'missing' }),
         makeSession({ id: 'a', startedAt: 1_000, taskId: 't1' }),
       ],
-      [makeTask({ title: 'Laporan, "penting"' })],
+      [makeTask({ title: 'Report, "important"' })],
     )
 
-    expect(csv.startsWith('\uFEFFtanggal,mulai,selesai,metode,jenis,')).toBe(true)
+    expect(csv.startsWith('\uFEFFdate,started,ended,method,kind,')).toBe(true)
     const lines = csv.trim().split('\n')
     expect(lines).toHaveLength(3)
     expect(lines[1]).toContain('Pomodoro')
-    expect(lines[1]).toContain('"Laporan, ""penting"""')
-    expect(lines[2]).toContain('(dihapus)')
+    expect(lines[1]).toContain('"Report, ""important"""')
+    expect(lines[2]).toContain('(deleted)')
   })
 
-  it('membawa nama preset Custom dan status tidak selesai', () => {
+  it('carries the Custom preset name and the incomplete status', () => {
     const csv = sessionsToCsv(
-      [makeSession({ method: 'custom', methodLabel: 'Pagi', completed: false })],
+      [makeSession({ method: 'custom', methodLabel: 'Morning', completed: false })],
       [],
     )
-    expect(csv).toContain('Custom (Pagi)')
-    expect(csv).toContain('tidak')
+    expect(csv).toContain('Custom (Morning)')
+    expect(csv).toContain('no')
   })
 })
 
 describe('restoreBackup', () => {
-  it('bergabung per id dan menghitung ulang sessionCount dari tabel', async () => {
+  it('merges per id and recomputes sessionCount from the table', async () => {
     await db.tasks.put(makeTask({ sessionCount: 0 }))
     await db.sessions.put(makeSession({ taskId: 't1' }))
     await db.blocks.put(makeBlock())
@@ -88,12 +88,12 @@ describe('restoreBackup', () => {
     expect((await db.tasks.get('t1'))?.sessionCount).toBe(1)
   })
 
-  it('baris tidak berbentuk dibuang dan dihitung skipped', async () => {
+  it('malformed rows are dropped and counted as skipped', async () => {
     const result = await restoreBackup(
       JSON.stringify({
         app: 'ritme',
         tasks: [makeTask(), { id: 3 }],
-        sessions: ['rusak'],
+        sessions: ['broken'],
         blocks: [],
         presets: [],
       }),
@@ -104,19 +104,19 @@ describe('restoreBackup', () => {
     })
   })
 
-  it('bukan JSON atau bukan backup Ritme → pesan error', async () => {
-    expect(await restoreBackup('bukan json')).toEqual({ ok: false, error: 'Berkas bukan JSON' })
-    expect(await restoreBackup(JSON.stringify({ app: 'lain' }))).toEqual({
+  it('not JSON or not a Ritme backup → error message', async () => {
+    expect(await restoreBackup('not json')).toEqual({ ok: false, error: 'File is not JSON' })
+    expect(await restoreBackup(JSON.stringify({ app: 'other' }))).toEqual({
       ok: false,
-      error: 'Bukan berkas backup Ritme',
+      error: 'Not a Ritme backup file',
     })
   })
 })
 
 describe('exportFileName', () => {
-  it('bertanggal lokal dengan ekstensi sesuai jenis', () => {
+  it('is locally dated with an extension matching the kind', () => {
     const at = new Date(2026, 9, 5, 9, 0).getTime()
     expect(exportFileName('backup', 'json', at)).toBe('ritme-backup-2026-10-05.json')
-    expect(exportFileName('sesi', 'csv', at)).toBe('ritme-sesi-2026-10-05.csv')
+    expect(exportFileName('sessions', 'csv', at)).toBe('ritme-sessions-2026-10-05.csv')
   })
 })

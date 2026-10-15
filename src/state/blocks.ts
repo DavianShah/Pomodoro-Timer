@@ -1,9 +1,9 @@
 /**
- * Store blok Time Boxing hari ini (F16). Komponen memanggil store; store
- * memanggil operasi murni `src/timer/blocks` lalu repository
- * `src/data/blocks` — Dexie tidak pernah tersentuh UI. Kegagalan validasi
- * dikembalikan sebagai pesan untuk ditampilkan di panel; kegagalan
- * IndexedDB ditandai ke `databaseAvailable` (satu banner untuk aplikasi).
+ * Today's Time Boxing block store (F16). Components call the store; the
+ * store calls the pure operations in `src/timer/blocks` and then the
+ * `src/data/blocks` repository — Dexie never touches the UI. Validation
+ * failures come back as a message to show in the panel; IndexedDB failures
+ * are flagged via `databaseAvailable` (one banner for the app).
  */
 import { create } from 'zustand'
 import type { BlockRow } from '@/db/db'
@@ -23,28 +23,28 @@ import { useSettings } from './settings'
 
 interface BlocksState {
   blocks: BlockRow[]
-  /** Tanggal yang dimuat (`YYYY-MM-DD`, zona perangkat). */
+  /** The loaded date (`YYYY-MM-DD`, device timezone). */
   date: string
-  /** Panel Jadwal terbuka. */
+  /** Schedule panel open. */
   open: boolean
   load: () => Promise<void>
   refresh: () => Promise<void>
   toggleOpen: () => void
-  /** Buat blok baru; null = sukses, string = pesan validasi. */
+  /** Create a block; null = success, string = validation message. */
   create: (fields: BlockFields) => Promise<string | null>
-  /** Ubah blok; null = sukses, string = pesan validasi. */
+  /** Edit a block; null = success, string = validation message. */
   edit: (id: string, fields: BlockFields) => Promise<string | null>
   remove: (id: string) => Promise<void>
-  /** Perpanjang (Lanjut 15) — kembalikan blok barunya, atau null. */
+  /** Extend (Resume 15) — returns the new block, or null. */
   extend: (id: string, extraMin: number) => Promise<BlockRow | null>
-  /** Geser semua blok setelahnya. */
+  /** Shift every following block. */
   shift: (id: string, deltaMin: number) => Promise<void>
-  /** Tandai blok yang sedang dicover timer sebagai `running`. */
+  /** Mark the block the timer currently covers as `running`. */
   markRunning: (now: number) => Promise<void>
 }
 
 function markUnavailable(error: unknown): void {
-  console.warn('Ritme: blok tidak bisa diakses', error)
+  console.warn('Ritme: blocks unavailable', error)
   useSettings.setState({ databaseAvailable: false })
 }
 

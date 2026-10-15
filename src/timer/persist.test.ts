@@ -5,7 +5,7 @@ import { loadTimer, restoreTimer, saveTimer } from './persist'
 
 const T0 = Date.UTC(2026, 0, 5, 8, 0, 0)
 
-describe('simpan/pulih timer', () => {
+describe('timer save/restore', () => {
   beforeEach(() => {
     localStorage.clear()
   })
@@ -14,7 +14,7 @@ describe('simpan/pulih timer', () => {
     configureMethods({ durations: {}, custom: null })
   })
 
-  it('mengembalikan countdown yang sedang jalan dari sisa waktu', () => {
+  it('restores a running countdown from its remaining time', () => {
     const running = start(createTimer('pomodoro'), T0)
     saveTimer(running)
 
@@ -25,7 +25,7 @@ describe('simpan/pulih timer', () => {
     expect(restored.method).toBe('pomodoro')
   })
 
-  it('endTime sudah lewat → sesi selesai senyap, tanpa alarm dan tanpa crash', () => {
+  it('endTime already past → session finishes silently, no alarm, no crash', () => {
     const running = start(createTimer('pomodoro'), T0)
     const restored = restoreTimer(running, T0 + 25 * MINUTE + 60_000)
 
@@ -35,7 +35,7 @@ describe('simpan/pulih timer', () => {
     expect(restored.remainingMs).toBe(5 * MINUTE)
   })
 
-  it('jaga dipulih apa adanya: sisa waktu dan fase tetap', () => {
+  it('a paused timer restores as-is: remaining time and phase unchanged', () => {
     const paused = pause(start(createTimer('pomodoro'), T0), T0 + 7 * MINUTE)
     const restored = restoreTimer(paused, T0 + 3 * 60 * 60 * 1000)
 
@@ -45,7 +45,7 @@ describe('simpan/pulih timer', () => {
     expect(restored.remainingMs).toBe(18 * MINUTE)
   })
 
-  it('metode Custom tanpa konfigurasi tersimpan → jatuh ke Pomodoro, tanpa crash', () => {
+  it('Custom method without stored configuration → falls back to Pomodoro, no crash', () => {
     configureMethods({ durations: {}, custom: null })
     const raw = {
       method: 'custom',
@@ -64,7 +64,7 @@ describe('simpan/pulih timer', () => {
     expect(restored.remainingMs).toBe(40 * MINUTE)
   })
 
-  it('metode Custom dengan konfigurasi tersimpan tetap Custom', () => {
+  it('Custom method with stored configuration stays Custom', () => {
     configureMethods({
       durations: {},
       custom: { ...DEFAULT_CUSTOM, focusMs: 40 * MINUTE },
@@ -85,7 +85,7 @@ describe('simpan/pulih timer', () => {
     expect(restored.remainingMs).toBe(40 * MINUTE)
   })
 
-  it('Flowtime hitung maju yang berjalan: elapsed berlanjut dari waktu pulih', () => {
+  it('running Flowtime count-up: elapsed continues from the recovery time', () => {
     const running = start(createTimer('flowtime'), T0)
     const at = T0 + 90_000
     const restored = restoreTimer(running, at)
@@ -95,7 +95,7 @@ describe('simpan/pulih timer', () => {
     expect(elapsed(restored, at)).toBe(90_000)
   })
 
-  it('Flowtime hitung maju yang dijaga: akumulasi lama dipertahankan', () => {
+  it('paused Flowtime count-up: the old accumulation is kept', () => {
     const paused = pause(start(createTimer('flowtime'), T0), T0 + 60_000)
     const restored = restoreTimer(paused, T0 + 9 * 60 * 60 * 1000)
 
@@ -103,21 +103,21 @@ describe('simpan/pulih timer', () => {
     expect(elapsed(restored, T0 + 9 * 60 * 60 * 1000)).toBe(60_000)
   })
 
-  it('data rusak jatuh ke state awal tanpa crash', () => {
+  it('corrupt data falls back to the initial state without crashing', () => {
     for (const bad of [
-      'bukan objek',
+      'not an object',
       42,
       null,
       {},
-      { method: 'pomodoro', phase: 'nanti', running: false, cycleIndex: 1 },
-      { method: 'pomodoro', phase: 'focus', running: 'ya', cycleIndex: 1 },
+      { method: 'pomodoro', phase: 'later', running: false, cycleIndex: 1 },
+      { method: 'pomodoro', phase: 'focus', running: 'yes', cycleIndex: 1 },
       { method: 'pomodoro', phase: 'focus', running: true, cycleIndex: 0 },
       {
         method: 'pomodoro',
         phase: 'focus',
         running: false,
         cycleIndex: 1,
-        endTime: 'selasa',
+        endTime: 'tuesday',
         remainingMs: NaN,
         elapsedMs: Infinity,
         startedAt: {},
@@ -131,21 +131,21 @@ describe('simpan/pulih timer', () => {
     }
   })
 
-  it('isi localStorage yang rusak dibaca sebagai state awal', () => {
-    localStorage.setItem('ritme.v1.timer', '{tidak valid json')
+  it('corrupt localStorage content reads as the initial state', () => {
+    localStorage.setItem('ritme.v1.timer', '{invalid json')
     expect(loadTimer(T0).remainingMs).toBe(25 * MINUTE)
 
     localStorage.setItem('ritme.v1.timer', JSON.stringify({ v: 1, value: [1, 2, 3] }))
     expect(loadTimer(T0).method).toBe('pomodoro')
   })
 
-  it('metode tak dikenal jatuh ke Pomodoro', () => {
+  it('an unknown method falls back to Pomodoro', () => {
     const running = start(createTimer('pomodoro'), T0)
     const restored = restoreTimer({ ...running, method: 'mars' }, T0 + 1000)
     expect(restored.method).toBe('pomodoro')
   })
 
-  it('countdown berjalan tanpa endTime dianggap data tidak konsisten → jaga', () => {
+  it('a running countdown without endTime is inconsistent data → paused', () => {
     const running = start(createTimer('pomodoro'), T0)
     const restored = restoreTimer({ ...running, endTime: null, remainingMs: null }, T0 + 1000)
 
@@ -155,10 +155,10 @@ describe('simpan/pulih timer', () => {
   })
 })
 
-describe('pulih Time Boxing', () => {
+describe('Time Boxing restore', () => {
   const blockEnd = T0 + 30 * MINUTE
 
-  it('endTime sudah lewat → berhenti sebagai penanda blok: fase fokus, endTime dipertahankan', () => {
+  it('endTime already past → stops as a block marker: focus phase, endTime kept', () => {
     const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), T0)
     const restored = restoreTimer(running, T0 + 45 * MINUTE)
 
@@ -167,7 +167,7 @@ describe('pulih Time Boxing', () => {
     expect(restored.phase).toBe('focus')
   })
 
-  it('endTime masih jauh → pulih berjalan dengan akhir blok yang sama', () => {
+  it('endTime still ahead → restores running with the same block end', () => {
     const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), T0)
     const restored = restoreTimer(running, T0 + 5 * MINUTE)
 

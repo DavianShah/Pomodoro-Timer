@@ -6,7 +6,7 @@ import { initInstallPrompt } from '@/pwa/install'
 import { initServiceWorker } from '@/pwa/register'
 
 const container = document.getElementById('root')
-if (!container) throw new Error('Elemen #root tidak ada di index.html')
+if (!container) throw new Error('#root element missing from index.html')
 
 createRoot(container).render(
   <StrictMode>

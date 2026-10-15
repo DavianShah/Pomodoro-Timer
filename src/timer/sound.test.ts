@@ -4,7 +4,7 @@ import { TONE_CONFIGS, type AlarmSound } from './alarm'
 import type * as AmbientModule from './ambient'
 import { AMBIENT_CONFIGS } from './ambient'
 
-/** Stub Web Audio minimal: cukup untuk merangkai loop ambient. */
+/** Minimal Web Audio stub: just enough to assemble the ambient loop. */
 class FakeAudioContext {
   state = 'running'
   currentTime = 0
@@ -60,15 +60,15 @@ class FakeAudioContext {
   }
 }
 
-describe('konfigurasi suara', () => {
-  it('setiap nada alarm punya bunyi yang bisa dibunyikan', () => {
+describe('sound configuration', () => {
+  it('every alarm tone has a playable beep', () => {
     for (const sound of Object.keys(TONE_CONFIGS) as AlarmSound[]) {
       expect(TONE_CONFIGS[sound].count).toBeGreaterThan(0)
       expect(TONE_CONFIGS[sound].peak).toBeGreaterThan(0)
     }
   })
 
-  it('setiap ambient punya gain dan filter valid', () => {
+  it('every ambient kind has a valid gain and filter', () => {
     for (const config of Object.values(AMBIENT_CONFIGS)) {
       expect(config.gain).toBeGreaterThan(0)
       expect(config.frequency).toBeGreaterThan(0)
@@ -76,12 +76,12 @@ describe('konfigurasi suara', () => {
   })
 })
 
-describe('ambient tanpa audio context', () => {
-  it('start/stop/volume aman dan tidak berbunyi', async () => {
+describe('ambient without an audio context', () => {
+  it('start/stop/volume are safe and produce no sound', async () => {
     vi.resetModules()
     const ambient = await import('./ambient')
     expect(() => {
-      ambient.startAmbient('hujan')
+      ambient.startAmbient('rain')
       ambient.setAmbientVolume(0.5)
       ambient.stopAmbient()
     }).not.toThrow()
@@ -89,7 +89,7 @@ describe('ambient tanpa audio context', () => {
   })
 })
 
-describe('ambient dengan audio siap', () => {
+describe('ambient with audio ready', () => {
   let alarm: typeof AlarmModule
   let ambient: typeof AmbientModule
 
@@ -107,11 +107,11 @@ describe('ambient dengan audio siap', () => {
     vi.resetModules()
   })
 
-  it('memutar, mengganti, dan menghentikan loop', () => {
+  it('plays, switches, and stops the loop', () => {
     expect(ambient.getAmbientSound()).toBe('off')
 
-    ambient.startAmbient('hujan')
-    expect(ambient.getAmbientSound()).toBe('hujan')
+    ambient.startAmbient('rain')
+    expect(ambient.getAmbientSound()).toBe('rain')
 
     ambient.startAmbient('brown')
     expect(ambient.getAmbientSound()).toBe('brown')
@@ -120,14 +120,14 @@ describe('ambient dengan audio siap', () => {
     expect(ambient.getAmbientSound()).toBe('off')
   })
 
-  it('volume dijepit dan playAlarm tidak melempar untuk tiap nada', () => {
-    ambient.startAmbient('kipas')
+  it('volume is clamped and playAlarm does not throw for any tone', () => {
+    ambient.startAmbient('fan')
     ambient.setAmbientVolume(2)
     ambient.setAmbientVolume(-1)
     expect(() => {
-      alarm.playAlarm('bip')
-      alarm.playAlarm('lembut')
-      alarm.playAlarm('rendah')
+      alarm.playAlarm('beep')
+      alarm.playAlarm('soft')
+      alarm.playAlarm('low')
     }).not.toThrow()
   })
 })

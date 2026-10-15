@@ -1,59 +1,59 @@
 import { expect, test } from '@playwright/test'
 
-test('task: tambah, pilih, sesi fokus tercatat, data bertahan setelah reload', async ({ page }) => {
+test('task: add, select, focus session recorded, data survives a reload', async ({ page }) => {
   await page.goto('/')
 
-  // Buka panel lewat tombol (aria-expanded sinkron dengan state).
+  // Open the panel via the button (aria-expanded stays in sync with state).
   const toggle = page.getByRole('button', { name: 'Task', exact: true })
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
 
-  // Tambah lewat Enter.
-  await page.getByLabel('Task baru').fill('Tulis laporan')
+  // Add via Enter.
+  await page.getByLabel('New task').fill('Write report')
   await page.keyboard.press('Enter')
-  const row = page.getByRole('button', { name: /Tulis laporan/ })
+  const row = page.getByRole('button', { name: /Write report/ })
   await expect(row).toHaveAttribute('aria-pressed', 'false')
 
-  // Pilih jadi task aktif, tutup panel, task tampil di layar timer.
+  // Select as the active task, close the panel, the task shows on the timer screen.
   await row.click()
   await expect(row).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'Tutup', exact: true }).click()
-  await expect(page.locator('main').getByText('Tulis laporan')).toBeVisible()
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(page.locator('main').getByText('Write report')).toBeVisible()
 
-  // Selesaikan satu sesi fokus (Flowtime: Selesai = completed).
-  await page.getByRole('button', { name: /Flowtime/ }).click()
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
+  // Finish one focus session (Flowtime: Finish = completed).
+  await page.getByRole('radio', { name: /Flowtime/ }).check({ force: true })
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
   await page.waitForTimeout(300)
-  await page.getByRole('button', { name: 'Selesai', exact: true }).click()
+  await page.getByRole('button', { name: 'Finish', exact: true }).click()
 
-  // Hitungan sesi naik setelah sesi berakhir.
+  // The session count goes up after the session ends.
   await toggle.click()
-  await expect(page.getByText('1 sesi')).toBeVisible()
-  await page.getByRole('button', { name: 'Tutup', exact: true }).click()
+  await expect(page.getByText('1 sessions')).toBeVisible()
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
 
-  // Reload: daftar, hitungan, dan task aktif tetap ada.
+  // Reload: the list, the count, and the active task all survive.
   await page.reload()
   await toggle.click()
-  await expect(page.getByRole('button', { name: /Tulis laporan/ })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: /Write report/ })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
-  await expect(page.getByText('1 sesi')).toBeVisible()
-  await expect(page.locator('main').getByText('Tulis laporan')).toBeVisible()
+  await expect(page.getByText('1 sessions')).toBeVisible()
+  await expect(page.locator('main').getByText('Write report')).toBeVisible()
 
-  // Fokus jatuh ke input saat panel terbuka: 't' mengetik, bukan shortcut.
-  await expect(page.getByLabel('Task baru')).toBeFocused()
+  // Focus falls on the input when the panel opens: 't' types, it is not a shortcut.
+  await expect(page.getByLabel('New task')).toBeFocused()
   await page.keyboard.type('t')
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.getByLabel('Task baru')).toHaveValue('t')
+  await expect(page.getByLabel('New task')).toHaveValue('t')
 
-  // Escape menutup panel; fokus kembali ke tombol Task.
+  // Escape closes the panel; focus returns to the Task button.
   await page.keyboard.press('Escape')
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await expect(toggle).toBeFocused()
 
-  // Shortcut T: buka dari tombol, tutup dari luar input.
+  // Shortcut T: opens from the button, closes from outside the input.
   await page.keyboard.press('t')
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
   await page.locator('header p').click()
@@ -61,21 +61,21 @@ test('task: tambah, pilih, sesi fokus tercatat, data bertahan setelah reload', a
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
 })
 
-test('hapus task: panel kembali ke pesan kosong', async ({ page }) => {
+test('delete a task: the panel goes back to the empty message', async ({ page }) => {
   await page.goto('/')
 
   const toggle = page.getByRole('button', { name: 'Task', exact: true })
   await toggle.click()
-  await page.getByLabel('Task baru').fill('Sementara')
+  await page.getByLabel('New task').fill('Temporary')
   await page.keyboard.press('Enter')
 
-  await page.getByRole('button', { name: /Sementara/ }).click()
-  await expect(page.getByRole('button', { name: /Sementara/ })).toHaveAttribute(
+  await page.getByRole('button', { name: /Temporary/ }).click()
+  await expect(page.getByRole('button', { name: /Temporary/ })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
-  await page.getByRole('button', { name: 'Hapus', exact: true }).click()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
 
-  await expect(page.getByText('Belum ada task.')).toBeVisible()
-  await expect(page.locator('main').getByText('Sementara')).toHaveCount(0)
+  await expect(page.getByText('No tasks yet.')).toBeVisible()
+  await expect(page.locator('main').getByText('Temporary')).toHaveCount(0)
 })

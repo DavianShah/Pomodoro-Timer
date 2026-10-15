@@ -1,11 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 
 /**
- * Time Boxing (F16) lewat jalur nyata: blok via form dan via drag, mulai di
- * dalam blok, akhir blok terlewati → baris pilihan, Lanjut/Geser, persist
- * ulang-muat. Tanpa page.clock: jam tick di Web Worker terpisah — manipulasi
- * jam halaman tak menjangkaunya; penyeberangan ditimbulkan dengan endTime
- * dekat (live) atau endTime lewat (pulih).
+ * Time Boxing (F16) through the real paths: blocks via form and via drag,
+ * starting inside a block, block end overrun → choice row, Extend/Shift,
+ * persistence across reloads. No page.clock: the tick clock is in a separate
+ * Web Worker — page clock manipulation cannot reach it; crossings are
+ * produced with a near endTime (live) or a past endTime (recovery).
  */
 
 interface StoredBlock {
@@ -19,7 +19,7 @@ interface StoredBlock {
 const pad = (value: number): string => String(value).padStart(2, '0')
 const hhmm = (minute: number): string => `${pad(Math.floor(minute / 60))}:${pad(minute % 60)}`
 
-/** Menit sekarang menurut jam perangkat (zona lokal). */
+/** Current minutes according to the device clock (local timezone). */
 async function nowMinute(page: Page): Promise<number> {
   return page.evaluate(() => {
     const date = new Date()
@@ -27,7 +27,7 @@ async function nowMinute(page: Page): Promise<number> {
   })
 }
 
-/** Semua baris blok langsung dari IndexedDB aplikasi — tanpa hook tes. */
+/** All block rows straight from the app IndexedDB — no test hooks. */
 async function readBlocks(page: Page): Promise<StoredBlock[]> {
   return page.evaluate<StoredBlock[]>(
     () =>
@@ -43,15 +43,15 @@ async function readBlocks(page: Page): Promise<StoredBlock[]> {
           }
           getAll.onerror = () => {
             db.close()
-            reject(getAll.error ?? new Error('gagal membaca blok'))
+            reject(getAll.error ?? new Error('failed to read blocks'))
           }
         }
-        request.onerror = () => reject(request.error ?? new Error('gagal membuka db'))
+        request.onerror = () => reject(request.error ?? new Error('failed to open db'))
       }),
   )
 }
 
-/** Baca satu nilai dari state timer mentah di localStorage. */
+/** Read one value from the raw timer state in localStorage. */
 async function timerValue(page: Page, key: string): Promise<unknown> {
   return page.evaluate((name) => {
     const raw = localStorage.getItem('ritme.v1.timer')
@@ -62,8 +62,9 @@ async function timerValue(page: Page, key: string): Promise<unknown> {
 }
 
 /**
- * Setel baris blok (waktu mutlak) + timer mentah: running dengan endTime =
- * akhir blok yang SUDAH lewat → reload menampilkan baris pilihan pulih.
+ * Set the block row (absolute times) + raw timer: running with endTime =
+ * the end of a block that has ALREADY passed → a reload shows the recovered
+ * choice row.
  */
 async function craftPrompt(
   page: Page,
@@ -132,17 +133,17 @@ async function craftPrompt(
           }
           write.onerror = () => {
             db.close()
-            reject(write.error ?? new Error('gagal menulis blok'))
+            reject(write.error ?? new Error('failed to write blocks'))
           }
         }
-        request.onerror = () => reject(request.error ?? new Error('gagal membuka db'))
+        request.onerror = () => reject(request.error ?? new Error('failed to open db'))
       })
     },
     { first: block, second: extra },
   )
 }
 
-/** Timer mentah: penyeberangan akhir hidup delayMs dari sekarang (tanpa blok). */
+/** Raw timer: a live end crossing delayMs from now (no block). */
 async function craftLiveCrossing(page: Page, delayMs: number): Promise<void> {
   await page.evaluate((delay) => {
     const now = Date.now()
@@ -166,121 +167,118 @@ async function craftLiveCrossing(page: Page, delayMs: number): Promise<void> {
 }
 
 const promptRow = (page: Page) =>
-  page.locator('main [role="status"]').filter({ hasText: 'berakhir' })
+  page.locator('main [role="status"]').filter({ hasText: 'finished' })
 
-test('blok via form: mulai di dalam blok, akhir blok terlewati → baris pilihan', async ({
-  page,
-}) => {
+test('block via form: start inside a block, block end overrun → choice row', async ({ page }) => {
   await page.goto('/')
-  const method = page.getByRole('button', { name: /Time boxing/ })
-  await method.click()
-  await expect(method).toHaveAttribute('aria-pressed', 'true')
+  const method = page.getByRole('radio', { name: /Time boxing/ })
+  await method.check({ force: true })
+  await expect(method).toBeChecked()
 
-  // Dua blok bertetangga yang MENUTUP sekarang: rentang status 'Fokus ·'.
+  // One block COVERING now (≥15 min) — status range 'Focus ·'. End clamped to
+  // 23:59 (a time input cannot hold 24:00), so late in the day the block
+  // stretches backwards instead of forward.
   const minute = await nowMinute(page)
-  const start = Math.max(0, Math.floor((minute - 1) / 15) * 15)
-  const mid = Math.min(start + 30, 1440)
-  const end = Math.min(mid + 15, 1440)
+  const end = Math.min(minute + 15, 1439)
+  const start = Math.max(0, Math.min(minute - 1, end - 30))
 
-  await page.getByRole('button', { name: 'Jadwal', exact: true }).click()
+  await page.getByRole('button', { name: 'Schedule', exact: true }).click()
   const panel = page.locator('#panel-jadwal')
   await expect(panel).toBeVisible()
   const addBlock = async (from: number, to: number): Promise<void> => {
-    await page.getByRole('button', { name: 'Tambah blok', exact: true }).click()
+    await page.getByRole('button', { name: 'Add block', exact: true }).click()
     await page.locator('#blok-mulai').fill(hhmm(from))
     await page.locator('#blok-selesai').fill(hhmm(to))
-    await page.getByRole('button', { name: 'Simpan', exact: true }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
   }
-  await addBlock(start, mid)
-  if (end > mid) await addBlock(mid, end)
+  await addBlock(start, end)
   await expect.poll(async () => (await readBlocks(page)).length).toBeGreaterThanOrEqual(1)
-  await panel.getByRole('button', { name: 'Tutup', exact: true }).click()
+  await panel.getByRole('button', { name: 'Close', exact: true }).click()
   await expect(panel).toBeHidden()
 
   const status = page.locator('main [aria-live="polite"]')
-  await expect(status).toContainText('Fokus ·')
+  await expect(status).toContainText('Focus ·')
   await expect(page.locator('main h1')).toHaveText(/^\d{1,2}:\d{2}$/)
 
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Selesai', exact: true }).first()).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Jeda', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Finish', exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveCount(0)
   await expect
     .poll(async () => (await readBlocks(page)).some((b) => b.status === 'running'))
     .toBe(true)
 
-  // Penyeberangan HIDUP: endTime 2,5 detik lagi → alarm/catatan/pilihan muncul
-  // sendiri saat tick lewat. Tanpa blok yang cocok → hanya tombol Selesai.
+  // LIVE crossing: endTime 2.5 seconds away → alarm/record/choices appear by
+  // themselves as the tick passes. No matching block → only the Finish button.
   await craftLiveCrossing(page, 2500)
   await page.reload()
   const row = promptRow(page)
   await expect(row).toBeVisible({ timeout: 10_000 })
-  await expect(status).toHaveText('Blok selesai')
-  await expect(row.getByRole('button', { name: 'Selesai', exact: true })).toBeVisible()
-  await expect(row.getByRole('button', { name: 'Lanjut 15 menit', exact: true })).toHaveCount(0)
+  await expect(status).toHaveText('Block finished')
+  await expect(row.getByRole('button', { name: 'Finish', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Extend 15 min', exact: true })).toHaveCount(0)
 
-  await row.getByRole('button', { name: 'Selesai', exact: true }).click()
+  await row.getByRole('button', { name: 'Finish', exact: true }).click()
   await expect(row).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
-  await expect(status).toContainText('Fokus ·')
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
+  await expect(status).toContainText('Focus ·')
 })
 
-test('Spasi tanpa blur setelah Mulai: blok berjalan tidak berakhir, sesi tidak tercatat', async ({
+test('Space without blur after Start: a running block does not end, no session recorded', async ({
   page,
 }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: /Time boxing/ }).click()
-  await expect(page.getByRole('button', { name: /Time boxing/ })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  await page.getByRole('radio', { name: /Time boxing/ }).check({ force: true })
+  await expect(page.getByRole('radio', { name: /Time boxing/ })).toBeChecked()
 
-  // Satu blok yang menutup menit sekarang → Mulai langsung di dalam blok.
+  // One block covering the current minute → Start lands inside the block.
   const minute = await nowMinute(page)
-  const start = Math.max(0, Math.floor((minute - 1) / 15) * 15)
-  const end = Math.min(start + 30, 1440)
+  const end = Math.min(minute + 15, 1439)
+  const start = Math.max(0, Math.min(minute - 1, end - 30))
 
-  await page.getByRole('button', { name: 'Jadwal', exact: true }).click()
+  await page.getByRole('button', { name: 'Schedule', exact: true }).click()
   const panel = page.locator('#panel-jadwal')
   await expect(panel).toBeVisible()
-  await page.getByRole('button', { name: 'Tambah blok', exact: true }).click()
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await page.locator('#blok-mulai').fill(hhmm(start))
   await page.locator('#blok-selesai').fill(hhmm(end))
-  await page.getByRole('button', { name: 'Simpan', exact: true }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect.poll(async () => (await readBlocks(page)).length).toBeGreaterThanOrEqual(1)
-  await panel.getByRole('button', { name: 'Tutup', exact: true }).click()
+  await panel.getByRole('button', { name: 'Close', exact: true }).click()
   await expect(panel).toBeHidden()
 
   const clock = page.locator('main h1')
-  await page.getByRole('button', { name: 'Mulai', exact: true }).click()
-  // Fokus tetap di tombol utama yang kini berlabel Selesai — tanpa blur.
-  await expect(page.getByRole('button', { name: 'Selesai', exact: true }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'Start', exact: true }).click()
+  // Focus stays on the main button now labeled Finish — without blur.
+  await expect(page.getByRole('button', { name: 'Finish', exact: true }).first()).toBeVisible()
   await page.waitForTimeout(1_200)
   await page.keyboard.press('Space')
 
-  // Blok tetap berjalan: tanpa baris pilihan, jam maju, tanpa "Blok selesai".
+  // The block keeps running: no choice row, the clock advances, no "Block finished".
   await expect(promptRow(page)).toHaveCount(0)
-  await expect(page.locator('main [aria-live="polite"]')).not.toHaveText('Blok selesai')
+  await expect(page.locator('main [aria-live="polite"]')).not.toHaveText('Block finished')
   const after = await clock.textContent()
   await page.waitForTimeout(1_200)
   await expect(clock).not.toHaveText(after ?? '')
 
-  // Sesi tidak tercatat: Space tidak mengaktifkan tombol Selesai.
-  await page.getByRole('button', { name: 'Statistik', exact: true }).click()
-  await expect(page.locator('#panel-statistik')).toContainText('Belum ada sesi fokus')
+  // No session recorded: Space did not activate the Finish button.
+  await page.getByRole('button', { name: 'Statistics', exact: true }).click()
+  await expect(page.locator('#panel-statistik')).toContainText('No focus sessions yet')
 })
 
-test('blok via drag: Lanjut 15, Geser setelah blok lewat, persist ulang muat', async ({ page }) => {
+test('block via drag: Extend 15, Shift after overrun, persistence across reloads', async ({
+  page,
+}) => {
   await page.goto('/')
-  await page.getByRole('button', { name: /Time boxing/ }).click()
-  await page.getByRole('button', { name: 'Jadwal', exact: true }).click()
+  await page.getByRole('radio', { name: /Time boxing/ }).check({ force: true })
+  await page.getByRole('button', { name: 'Schedule', exact: true }).click()
   const panel = page.locator('#panel-jadwal')
   await expect(panel).toBeVisible()
 
-  // Drag vertikal 02:00 → 03:00 (menit di sumbu-y; blok dibuat langsung saat lepas).
+  // Vertical drag 02:00 → 03:00 (minutes on the y-axis; the block is created on release).
   const timeline = page.locator('#timeline-blok')
   await timeline.evaluate((el) => el.scrollIntoView({ block: 'start' }))
   const box = await timeline.boundingBox()
-  if (box === null) throw new Error('timeline tidak terlihat')
+  if (box === null) throw new Error('timeline not visible')
   const yAt = (minute: number): number => box.y + (minute / 1440) * box.height
   const x = box.x + 200
   await page.mouse.move(x, yAt(120))
@@ -289,24 +287,24 @@ test('blok via drag: Lanjut 15, Geser setelah blok lewat, persist ulang muat', a
   await page.mouse.up()
   await expect.poll(async () => (await readBlocks(page)).length).toBe(1)
 
-  // Blok kedua via form, menempel setelah blok drag.
-  await page.getByRole('button', { name: 'Tambah blok', exact: true }).click()
+  // A second block via form, adjacent after the drag block.
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await page.locator('#blok-mulai').fill('03:00')
   await page.locator('#blok-selesai').fill('03:15')
-  await page.getByRole('button', { name: 'Simpan', exact: true }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect.poll(async () => (await readBlocks(page)).length).toBe(2)
-  await panel.getByRole('button', { name: 'Tutup', exact: true }).click()
+  await panel.getByRole('button', { name: 'Close', exact: true }).click()
   await expect(panel).toBeHidden()
 
   const initial = await readBlocks(page)
   const dragBlock = initial.find((b) => b.startMin === 120)
   const formBlock = initial.find((b) => b.startMin === 180)
-  if (dragBlock === undefined) throw new Error('blok drag tidak ada')
-  if (formBlock === undefined) throw new Error('blok form tidak ada')
+  if (dragBlock === undefined) throw new Error('drag block missing')
+  if (formBlock === undefined) throw new Error('form block missing')
   expect(dragBlock.endMin).toBe(180)
   expect(formBlock.endMin).toBe(195)
 
-  // Pulih dengan endTime = akhir blok yang sudah lewat → baris pilihan utuh.
+  // Recover with endTime = the block end already passed → the full choice row.
   const minute1 = await nowMinute(page)
   await craftPrompt(page, {
     id: dragBlock.id,
@@ -316,24 +314,25 @@ test('blok via drag: Lanjut 15, Geser setelah blok lewat, persist ulang muat', a
   await page.reload()
   const row = promptRow(page)
   await expect(row).toBeVisible({ timeout: 10_000 })
-  await expect(row.getByRole('button', { name: 'Lanjut 15 menit', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Extend 15 min', exact: true })).toBeVisible()
   await expect(
-    row.getByRole('button', { name: 'Geser blok berikutnya', exact: true }),
+    row.getByRole('button', { name: 'Shift following blocks', exact: true }),
   ).toBeVisible()
 
-  // Lanjut 15: blok diperpanjang +15 menit, sesi lanjut berjalan.
-  await row.getByRole('button', { name: 'Lanjut 15 menit', exact: true }).click()
+  // Extend 15: the block is extended +15 minutes, the session keeps running.
+  // Late in the day the end clamps at midnight (1440).
+  await row.getByRole('button', { name: 'Extend 15 min', exact: true }).click()
   await expect(row).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Selesai', exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Finish', exact: true }).first()).toBeVisible()
   await expect
     .poll(async () => (await readBlocks(page)).find((b) => b.id === dragBlock.id)?.endMin)
-    .toBe(minute1 + 15)
+    .toBe(Math.min(minute1 + 15, 1440))
 
-  // Hentikan sesi lalu pulihkan pilihan lagi; Geser memakai lewat-waktu (overrun > 0).
-  await page.getByRole('button', { name: 'Selesai', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
-  // Pencatatan sesi (Selesai) menulis status blok 'done' secara async —
-  // tunggu selesai sebelum menulis ulang baris, agar tidak balapan.
+  // Stop the session then recover the choice again; Shift uses the overrun (> 0).
+  await page.getByRole('button', { name: 'Finish', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
+  // Session recording (Finish) writes the block status 'done' asynchronously —
+  // wait for it before rewriting the row, so there is no race.
   await expect
     .poll(async () => (await readBlocks(page)).find((b) => b.id === dragBlock.id)?.status)
     .toBe('done')
@@ -341,7 +340,8 @@ test('blok via drag: Lanjut 15, Geser setelah blok lewat, persist ulang muat', a
   await craftPrompt(
     page,
     { id: dragBlock.id, startMin: Math.max(0, minute2 - 60), endMin: minute2 },
-    { id: formBlock.id, startMin: minute2 + 1, endMin: minute2 + 16 },
+    // Clamped to 23:59 — shiftFollowing cannot move blocks past day end.
+    { id: formBlock.id, startMin: minute2 + 1, endMin: Math.min(minute2 + 16, 1439) },
   )
   await expect
     .poll(async () => (await readBlocks(page)).find((b) => b.id === dragBlock.id)?.endMin)
@@ -352,52 +352,52 @@ test('blok via drag: Lanjut 15, Geser setelah blok lewat, persist ulang muat', a
   await page.reload()
   const row2 = promptRow(page)
   await expect(row2).toBeVisible({ timeout: 10_000 })
-  await row2.getByRole('button', { name: 'Geser blok berikutnya', exact: true }).click()
+  await row2.getByRole('button', { name: 'Shift following blocks', exact: true }).click()
   await expect(row2).toHaveCount(0)
   const shifted = (await readBlocks(page)).find((b) => b.id === formBlock.id)
-  if (shifted === undefined) throw new Error('blok berikutnya hilang')
+  if (shifted === undefined) throw new Error('next block missing')
   expect(shifted.startMin).toBeGreaterThan(minute2 + 1)
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
   await expect.poll(async () => timerValue(page, 'endTime')).toBeNull()
 
-  // Persist: endTime null bertahan lewat reload; tak ada baris pilihan tersisa.
+  // Persist: endTime null survives a reload; no choice row is left behind.
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
   await expect(promptRow(page)).toHaveCount(0)
   await expect.poll(async () => timerValue(page, 'endTime')).toBeNull()
 })
 
-test('Spasi: mulai blok saat idle, tidak mengakhiri blok saat berjalan', async ({ page }) => {
+test('Space: starts a block while idle, does not end a running block', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: /Time boxing/ }).click()
+  await page.getByRole('radio', { name: /Time boxing/ }).check({ force: true })
 
-  // Satu blok yang menutup sekarang, lewat form.
+  // One block covering now, via the form.
   const minute = await nowMinute(page)
-  const start = Math.max(0, Math.floor((minute - 1) / 15) * 15)
-  const end = Math.min(start + 30, 1440)
-  await page.getByRole('button', { name: 'Jadwal', exact: true }).click()
+  const end = Math.min(minute + 15, 1439)
+  const start = Math.max(0, Math.min(minute - 1, end - 30))
+  await page.getByRole('button', { name: 'Schedule', exact: true }).click()
   const panel = page.locator('#panel-jadwal')
-  await page.getByRole('button', { name: 'Tambah blok', exact: true }).click()
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await page.locator('#blok-mulai').fill(hhmm(start))
   await page.locator('#blok-selesai').fill(hhmm(end))
-  await page.getByRole('button', { name: 'Simpan', exact: true }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect.poll(async () => (await readBlocks(page)).length).toBeGreaterThanOrEqual(1)
-  await panel.getByRole('button', { name: 'Tutup', exact: true }).click()
+  await panel.getByRole('button', { name: 'Close', exact: true }).click()
 
-  // Spasi dijalankan dari body: perilaku native tombol fokus bukan shortcut.
+  // Space is pressed from the body: native button behavior, not the shortcut.
   const blur = async (): Promise<void> => {
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
   }
   const status = page.locator('main [aria-live="polite"]')
-  const running = page.getByRole('button', { name: 'Selesai', exact: true })
-  const idle = page.getByRole('button', { name: 'Mulai', exact: true })
+  const running = page.getByRole('button', { name: 'Finish', exact: true })
+  const idle = page.getByRole('button', { name: 'Start', exact: true })
 
   await blur()
   await page.keyboard.press('Space')
   await expect(running).toBeVisible()
-  await expect(status).toContainText('Fokus ·')
+  await expect(status).toContainText('Focus ·')
 
-  // Spasi saat berjalan: state tidak berubah — blok tidak ditutup.
+  // Space while running: state unchanged — the block is not ended.
   await blur()
   const before = await status.textContent()
   await page.keyboard.press('Space')
@@ -408,7 +408,7 @@ test('Spasi: mulai blok saat idle, tidak mengakhiri blok saat berjalan', async (
   await expect(promptRow(page)).toHaveCount(0)
   expect((await readBlocks(page)).some((block) => block.status === 'running')).toBe(true)
 
-  // S tetap satu-satunya shortcut penutup blok.
+  // S remains the only block-ending shortcut.
   await page.keyboard.press('s')
   await expect(idle).toBeVisible()
 })

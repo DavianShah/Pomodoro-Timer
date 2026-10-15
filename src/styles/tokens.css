@@ -1,12 +1,12 @@
-/* Ritme — token desain. Sumber tunggal warna, huruf, radius, motion.
-   Alasan tiap keputusan ada di DESIGN.md; jangan tambah token tanpa alasan.
-   Rasio kontras tiap pasangan dijaga src/lib/contrast.test.ts (WCAG AA). */
+/* Ritme — design tokens. Single source for color, type, radius, motion.
+   The reasoning behind each decision lives in DESIGN.md; never add a token
+   without a reason. Contrast ratios are guarded by src/lib/contrast.test.ts (WCAG AA). */
 
 @import 'tailwindcss';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
-/* Font di-host sendiri (subset latin, variable) supaya offline dan tanpa pihak ketiga. */
+/* Fonts are self-hosted (latin subset, variable) for offline use and no third parties. */
 @font-face {
   font-family: 'Archivo';
   font-style: normal;
@@ -42,8 +42,8 @@
   --ink-inverse: #f2eee6;
 
   --accent: #a8441f;
-  /* Aksen fokus tanpa ikut ganti fase — dipakai grafik statistik (F10).
-     Nilainya wajib sama dengan --accent di blok ini (dicek check-tokens). */
+  /* Focus accent that does not follow phase changes — used by the stats chart (F10).
+     Its value must equal --accent in this block (checked by check-tokens). */
   --accent-focus: #a8441f;
   --accent-strong: #8a3717;
   --accent-tint: #f0dcd0;
@@ -56,7 +56,7 @@
   --mode-transition: 300ms;
 }
 
-/* Mode gelap: hitam hangat, bukan hitam murni. Aksen dinaikkan agar tetap menahan tinta gelap. */
+/* Dark mode: warm black, not pure black. Accents are raised so they still hold dark ink. */
 [data-theme='dark'] {
   color-scheme: dark;
 
@@ -156,7 +156,7 @@
 }
 
 @layer components {
-  /* Angka waktu. tabular-nums wajib: lebar digit tetap, angka tidak bergeser. */
+  /* Clock numerals. tabular-nums is mandatory: fixed digit width, numbers never shift. */
   .angka {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;

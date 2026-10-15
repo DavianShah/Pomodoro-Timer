@@ -15,16 +15,16 @@ interface StatsPanelProps {
   onClose: () => void
 }
 
-const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function dayName(key: string): string {
   return DAY_NAMES[new Date(`${key}T12:00:00`).getDay()] ?? ''
 }
 
 /**
- * Panel statistik (F10) dan streak (F11): pola sama dengan TaskPanel —
- * aside kanan yang ditutup Escape. Grafik batang SVG buatan sendiri,
- * satu aksen token, tanpa library chart dan tanpa pie.
+ * Stats panel (F10) and streaks (F11): same pattern as TaskPanel — a right
+ * aside closed with Escape. A hand-rolled SVG bar chart, one accent token,
+ * no chart library and no pie.
  */
 export default function StatsPanel({ onClose }: StatsPanelProps) {
   const tasks = useTasks((state) => state.tasks)
@@ -32,12 +32,12 @@ export default function StatsPanel({ onClose }: StatsPanelProps) {
   const [failed, setFailed] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
 
-  // Fokus jatuh ke panel begitu terbuka; Escape di dalam panel menutup.
+  // Focus lands on the panel as soon as it opens; Escape inside closes it.
   useEffect(() => {
     panelRef.current?.focus()
   }, [])
 
-  // Satu baca lewat indeks `date`; judul task ikut dari store yang sama.
+  // One read through the `date` index; task titles come from the same store.
   useEffect(() => {
     let cancelled = false
     const todayKey = localDateKey(Date.now())
@@ -48,7 +48,7 @@ export default function StatsPanel({ onClose }: StatsPanelProps) {
       })
       .catch((error: unknown) => {
         if (cancelled) return
-        console.warn('Statistik gagal dibaca', error)
+        console.warn('Failed to read stats', error)
         setFailed(true)
       })
     return () => {
@@ -60,7 +60,7 @@ export default function StatsPanel({ onClose }: StatsPanelProps) {
     <aside
       ref={panelRef}
       id="panel-statistik"
-      aria-label="Statistik"
+      aria-label="Stats"
       tabIndex={-1}
       onKeyDown={(event) => {
         if (event.key === 'Escape') onClose()
@@ -68,62 +68,62 @@ export default function StatsPanel({ onClose }: StatsPanelProps) {
       className="fixed inset-y-0 right-0 z-40 flex w-full max-w-full flex-col border-l border-line bg-paper-raised sm:w-[27rem]"
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="label">Statistik</h2>
+        <h2 className="label">Stats</h2>
         <button
           type="button"
           onClick={onClose}
           className="rounded-md border border-line-strong px-3 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted"
         >
-          Tutup
+          Close
         </button>
       </div>
 
       {failed ? (
         <p role="status" className="px-4 py-4 text-sm text-ink-muted">
-          Statistik tidak bisa dibaca.
+          Stats could not be read.
         </p>
       ) : view === null ? (
-        <p className="px-4 py-4 text-sm text-ink-muted">Memuat.</p>
+        <p className="px-4 py-4 text-sm text-ink-muted">Loading.</p>
       ) : !view.hasAnySession ? (
-        <p className="px-4 py-4 text-sm text-ink-muted">Belum ada sesi fokus.</p>
+        <p className="px-4 py-4 text-sm text-ink-muted">No focus sessions yet.</p>
       ) : (
-        // Gulir keyboard: wilayah overflow harus bisa difokus tanpa mouse.
+        // Keyboard scrolling: an overflow region must be focusable without a mouse.
         <div tabIndex={0} className="flex-1 overflow-y-auto">
           <section className="border-b border-line px-4 py-4">
-            <h3 className="label">Hari ini</h3>
+            <h3 className="label">Today</h3>
             <p className="angka mt-2 text-2xl">{formatFocusMs(view.today.focusMs)}</p>
-            <p className="mt-1 text-sm text-ink-muted">{view.today.completedCount} sesi selesai</p>
+            <p className="mt-1 text-sm text-ink-muted">{view.today.completedCount} completed sessions</p>
           </section>
 
           <section className="border-b border-line px-4 py-4">
             <h3 className="label">Streak</h3>
             <p className="mt-2 text-sm">
-              Sekarang: <span className="angka">{view.streak.current}</span> hari
+              Current: <span className="angka">{view.streak.current}</span> days
             </p>
             <p className="mt-1 text-sm text-ink-muted">
-              Terpanjang: <span className="angka">{view.streak.longest}</span> hari
+              Longest: <span className="angka">{view.streak.longest}</span> days
             </p>
           </section>
 
           <section className="border-b border-line px-4 py-4">
-            <h3 className="label">7 hari terakhir</h3>
+            <h3 className="label">Last 7 days</h3>
             <WeekChart days={view.days} total={view.week.focusMs} />
             <p className="angka mt-2 text-sm">
-              {formatFocusMs(view.week.focusMs)} · {view.week.completedCount} sesi
+              {formatFocusMs(view.week.focusMs)} · {view.week.completedCount} sessions
             </p>
-            <p className="mt-1 text-xs text-ink-muted">tidak selesai: {view.incompleteCount}</p>
+            <p className="mt-1 text-xs text-ink-muted">incomplete: {view.incompleteCount}</p>
           </section>
 
           {view.methods.length > 0 && (
             <section className="border-b border-line px-4 py-4 last:border-b-0">
-              <h3 className="label">Per metode</h3>
+              <h3 className="label">By method</h3>
               <GroupList items={view.methods} />
             </section>
           )}
 
           {view.tasks.length > 0 && (
             <section className="border-b border-line px-4 py-4 last:border-b-0">
-              <h3 className="label">Per task</h3>
+              <h3 className="label">By task</h3>
               <GroupList items={view.tasks} />
             </section>
           )}
@@ -147,7 +147,7 @@ function GroupList({ items }: { items: GroupStat[] }) {
               )}
             </span>
             <span className="angka shrink-0 text-xs text-ink-muted">
-              {formatFocusMs(item.focusMs)} · {item.completedCount} sesi
+              {formatFocusMs(item.focusMs)} · {item.completedCount} sessions
             </span>
           </div>
           <div className="mt-1.5 h-1 w-full bg-paper-sunken" aria-hidden="true">
@@ -177,7 +177,7 @@ function WeekChart({ days, total }: { days: DayStat[]; total: number }) {
       <svg
         viewBox="0 0 320 150"
         role="img"
-        aria-label={`Grafik fokus 7 hari, total ${formatFocusMs(total)}`}
+        aria-label={`7-day focus chart, total ${formatFocusMs(total)}`}
         className="mt-3 h-auto w-full"
       >
         <text x={40} y={plotTop + 4} textAnchor="end" className="fill-ink-muted text-[10px]">
@@ -232,14 +232,14 @@ function WeekChart({ days, total }: { days: DayStat[]; total: number }) {
         })}
       </svg>
 
-      {/* Angka tetap tersedia sebagai teks untuk pembaca layar. */}
+      {/* Numbers stay available as text for screen readers. */}
       <table className="sr-only">
-        <caption>Waktu fokus per hari, 7 hari terakhir</caption>
+        <caption>Focus time per day, last 7 days</caption>
         <thead>
           <tr>
-            <th scope="col">Tanggal</th>
-            <th scope="col">Fokus</th>
-            <th scope="col">Sesi selesai</th>
+            <th scope="col">Date</th>
+            <th scope="col">Focus</th>
+            <th scope="col">Completed sessions</th>
           </tr>
         </thead>
         <tbody>

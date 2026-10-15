@@ -1,32 +1,33 @@
 /**
- * Alarm sesi selesai disintesis dengan Web Audio — tanpa berkas audio.
- * AudioContext dibuat/di-unlock pada interaksi pertama user (klik Mulai).
- * Kalau browser menolak unlock, state berubah ke 'blocked' dan layar
- * menampilkan indikator kecil (PRD F5) — bukan kegagalan diam-diam.
+ * Session-end alarm synthesized with Web Audio — no audio files.
+ * The AudioContext is created/unlocked on the user's first interaction
+ * (clicking Start). If the browser refuses the unlock, state becomes
+ * 'blocked' and the screen shows a small indicator (PRD F5) — never a
+ * silent failure.
  *
- * Nada alarm adalah konfigurasi data (PRD F13): 'bip', 'lembut', 'rendah'.
- * Satu AudioContext dipakai bersama suara ambient (`ambient.ts`).
+ * Alarm tones are data configuration (PRD F13): 'beep', 'soft', 'low'.
+ * One AudioContext is shared with the ambient sound (`ambient.ts`).
  */
 
 export type AlarmState = 'idle' | 'ready' | 'blocked'
-export type AlarmSound = 'bip' | 'lembut' | 'rendah'
+export type AlarmSound = 'beep' | 'soft' | 'low'
 
 interface ToneConfig {
   type: OscillatorType
   frequency: number
-  /** Puncak gain tiap bunyi. */
+  /** Gain peak per beep. */
   peak: number
-  /** Lama tiap bunyi (detik). */
+  /** Length of each beep (seconds). */
   duration: number
-  /** Jarak antar bunyi (detik). */
+  /** Spacing between beeps (seconds). */
   spacing: number
   count: number
 }
 
 export const TONE_CONFIGS: Record<AlarmSound, ToneConfig> = {
-  bip: { type: 'square', frequency: 880, peak: 0.12, duration: 0.18, spacing: 0.35, count: 3 },
-  lembut: { type: 'sine', frequency: 587.33, peak: 0.09, duration: 0.35, spacing: 0.45, count: 2 },
-  rendah: {
+  beep: { type: 'square', frequency: 880, peak: 0.12, duration: 0.18, spacing: 0.35, count: 3 },
+  soft: { type: 'sine', frequency: 587.33, peak: 0.09, duration: 0.35, spacing: 0.45, count: 2 },
+  low: {
     type: 'triangle',
     frequency: 349.23,
     peak: 0.12,
@@ -57,7 +58,7 @@ function setState(next: AlarmState): void {
   for (const listener of listeners) listener()
 }
 
-/** Panggil dari handler interaksi user (klik Mulai). */
+/** Call from a user interaction handler (clicking Start). */
 export function unlockAlarm(): void {
   try {
     context ??= new AudioContext()
@@ -76,7 +77,7 @@ export function unlockAlarm(): void {
   )
 }
 
-/** AudioContext bersama; null sebelum unlock pertama. */
+/** Shared AudioContext; null before the first unlock. */
 export function getAudioContext(): AudioContext | null {
   return context
 }
@@ -95,8 +96,8 @@ function beep(ctx: AudioContext, at: number, tone: ToneConfig): void {
   oscillator.stop(at + tone.duration + 0.02)
 }
 
-/** Bunyi alarm sesuai pilihan nada. Diam kalau audio belum ter-unlock. */
-export function playAlarm(sound: AlarmSound = 'bip'): void {
+/** Play the alarm for the chosen tone. Silent if audio is not unlocked yet. */
+export function playAlarm(sound: AlarmSound = 'beep'): void {
   if (!context || context.state !== 'running') return
   const tone = TONE_CONFIGS[sound]
   const start = context.currentTime

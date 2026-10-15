@@ -56,7 +56,7 @@ e2e/                 Playwright tests
    one engine, not branches per method.
 3. UI follows PRD section 7 and `DESIGN.md`.
 4. At most two font families. Time digits use `tabular-nums`.
-5. UI copy is in Indonesian, short and flat.
+5. UI copy is in English, short and flat.
 6. One milestone per session (`docs/PRD.md` section 12), no features beyond the request.
 7. Do not add dependencies without a written reason.
 8. Colors come only from `src/styles/tokens.css`. After changing them, run
@@ -86,19 +86,19 @@ page, closing the popup resets state) is covered by Playwright. The PiP path
 is checked manually:
 
 1. `npm run build && npm run preview`, open in desktop Chrome/Edge.
-2. Click "Jendela mini" (Mini window) or press `M` → a 300×180 always-on-top
+2. Click "Mini window" or press `M` → a 300×180 always-on-top
    window opens. The main page does not reload; there is no second timer.
-3. Click "Mulai" (Start) → numbers in the mini window run in sync; the main
-   buttons in the mini (Mulai/Jeda/Selesai/Mulai istirahat) control the main page.
+3. Click "Start" → numbers in the mini window run in sync; the main
+   buttons in the mini (Start/Pause/Finish/Start break) control the main page.
 4. Skip to break → the mini accent changes too; switch light/dark theme on the
    main page → the mini follows.
 5. Focus the mini, press Space then `R` → toggle and reset work from the mini
    window.
-6. Close the mini via X → the "Jendela mini" button returns to `aria-pressed="false"`.
+6. Close the mini via X → the "Mini window" button returns to `aria-pressed="false"`.
 7. With the timer running and the mini open, reload the main tab → the browser
    shows a warning. Timer paused or mini closed → no warning.
 8. After reload: the timer recovers as usual, the mini window is closed (it
    does not reopen automatically).
 9. If PiP is denied (e.g. blocked by browser policy), the same action falls
    back to a small popup; if the popup is also blocked, the main screen shows
-   the message "Popup diblokir — jendela mini tidak terbuka".
+   the message "Popup blocked — mini window did not open".

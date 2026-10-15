@@ -7,13 +7,13 @@ afterEach(() => {
 })
 
 describe('parseSettings', () => {
-  it('memakai default untuk nilai yang rusak', () => {
+  it('uses defaults for corrupted values', () => {
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS)
     expect(parseSettings('pomodoro')).toEqual(DEFAULT_SETTINGS)
     expect(parseSettings({ theme: 'neon', lastMethod: 42 })).toEqual(DEFAULT_SETTINGS)
   })
 
-  it('menjaga nilai yang sah dan mengisi sisanya dari default', () => {
+  it('keeps valid values and fills the rest from defaults', () => {
     expect(parseSettings({ theme: 'dark', lastMethod: 'flowtime' })).toEqual({
       ...DEFAULT_SETTINGS,
       theme: 'dark',
@@ -32,7 +32,7 @@ describe('parseSettings', () => {
 })
 
 describe('resolveTheme', () => {
-  it('mengikuti sistem hanya saat pilihan system', () => {
+  it('follows the system only when the choice is system', () => {
     expect(resolveTheme('system', true)).toBe('dark')
     expect(resolveTheme('system', false)).toBe('light')
     expect(resolveTheme('dark', false)).toBe('dark')
@@ -41,7 +41,7 @@ describe('resolveTheme', () => {
 })
 
 describe('storage', () => {
-  it('menerima nilai JSON dan menolak yang lain', () => {
+  it('accepts JSON values and rejects the rest', () => {
     expect(isStoredValue('a')).toBe(true)
     expect(isStoredValue(0)).toBe(true)
     expect(isStoredValue(false)).toBe(true)
@@ -51,26 +51,26 @@ describe('storage', () => {
     expect(isStoredValue({ bad: Symbol('s') })).toBe(false)
   })
 
-  it('menyimpan nilai beserta versi skemanya', () => {
-    write('tema', 3, 'dark')
-    expect(JSON.parse(localStorage.getItem('ritme.v1.tema') ?? 'null')).toEqual({
+  it('stores the value along with its schema version', () => {
+    write('theme', 3, 'dark')
+    expect(JSON.parse(localStorage.getItem('ritme.v1.theme') ?? 'null')).toEqual({
       v: 3,
       value: 'dark',
     })
-    expect(read('tema', 'light')).toBe('dark')
+    expect(read('theme', 'light')).toBe('dark')
   })
 
-  it('kembali ke fallback saat data rusak atau validator menolak', () => {
-    localStorage.setItem('ritme.v1.tema', 'bukan json')
-    expect(read('tema', 'light')).toBe('light')
+  it('falls back when the data is corrupted or the validator rejects it', () => {
+    localStorage.setItem('ritme.v1.theme', 'not json')
+    expect(read('theme', 'light')).toBe('light')
 
-    localStorage.setItem('ritme.v1.tema', JSON.stringify({ v: 1, value: 7 }))
-    expect(read<string>('tema', 'light', (v): v is string => typeof v === 'string')).toBe('light')
+    localStorage.setItem('ritme.v1.theme', JSON.stringify({ v: 1, value: 7 }))
+    expect(read<string>('theme', 'light', (v): v is string => typeof v === 'string')).toBe('light')
   })
 
-  it('clear menghapus kunci', () => {
-    write('tema', 1, 'dark')
-    clear('tema')
-    expect(read('tema', 'light')).toBe('light')
+  it('clear removes the key', () => {
+    write('theme', 1, 'dark')
+    clear('theme')
+    expect(read('theme', 'light')).toBe('light')
   })
 })

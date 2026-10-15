@@ -17,7 +17,7 @@ import {
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
 
-/** Simpanan Custom di pengaturan: nilai + nama preset sumber (null = buatan tangan). */
+/** Custom store in settings: values + source preset name (null = hand-made). */
 export interface StoredCustom extends CustomConfig {
   presetName: string | null
 }
@@ -25,23 +25,23 @@ export interface StoredCustom extends CustomConfig {
 export interface AppSettings {
   theme: ThemeChoice
   lastMethod: string
-  /** Task aktif untuk sesi fokus berikutnya; null = tanpa task (F9). */
+  /** Active task for the next focus session; null = no task (F9). */
   activeTaskId: string | null
-  /** Wake Lock: layar tetap menyala saat timer jalan (F14). */
+  /** Wake Lock: keep the screen awake while the timer runs (F14). */
   wakeLock: boolean
-  /** Nada alarm sesi selesai (F13). */
+  /** Alarm tone when a session finishes (F13). */
   alarmSound: AlarmSound
-  /** Alarm berbunyi saat sesi selesai (F13). */
+  /** The alarm rings when a session finishes (F13). */
   alarmEnabled: boolean
-  /** Notifikasi browser saat sesi selesai (F5/F13). */
+  /** Browser notification when a session finishes (F5/F13). */
   notifications: boolean
-  /** Suara ambient saat timer berjalan (F13). */
+  /** Ambient sound while the timer runs (F13). */
   ambient: AmbientSound
-  /** Volume ambient 0–1. */
+  /** Ambient volume 0–1. */
   ambientVolume: number
-  /** Override durasi per metode (F3); absen = bawaan metode. */
+  /** Per-method duration overrides (F3); absent = method defaults. */
   durations: Partial<Record<EditableMethodId, DurationOverride>>
-  /** Konfigurasi metode Custom; null = korup/tidak ada — engine jatuh ke Pomodoro. */
+  /** Custom method configuration; null = corrupt/missing — the engine falls back to Pomodoro. */
   custom: StoredCustom | null
 }
 
@@ -50,7 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastMethod: DEFAULT_METHOD,
   activeTaskId: null,
   wakeLock: true,
-  alarmSound: 'bip',
+  alarmSound: 'beep',
   alarmEnabled: true,
   notifications: true,
   ambient: 'off',
@@ -59,8 +59,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   custom: { ...DEFAULT_CUSTOM, presetName: null },
 }
 
-const ALARM_SOUNDS: readonly AlarmSound[] = ['bip', 'lembut', 'rendah']
-const AMBIENT_SOUNDS: readonly AmbientSound[] = ['off', 'hujan', 'kipas', 'brown']
+const ALARM_SOUNDS: readonly AlarmSound[] = ['beep', 'soft', 'low']
+const AMBIENT_SOUNDS: readonly AmbientSound[] = ['off', 'rain', 'fan', 'brown']
 
 export const isAlarmSound = (value: unknown): value is AlarmSound =>
   typeof value === 'string' && (ALARM_SOUNDS as readonly string[]).includes(value)
@@ -75,8 +75,8 @@ const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
 
 /**
- * Parse satu override durasi: focus+break wajib valid; longBreak/cycle
- * opsional dan divalidasi hanya bila ada. Tidak utuh → null (bawaan).
+ * Parse one duration override: focus+break must be valid; longBreak/cycle
+ * are optional and validated only when present. Not intact → null (defaults).
  */
 function parseOverride(value: unknown): DurationOverride | null {
   if (typeof value !== 'object' || value === null) return null
@@ -120,7 +120,7 @@ function parseCustom(value: unknown): StoredCustom | null {
   }
   let cycle = 1
   if (raw.cycle !== null && raw.cycle !== undefined) {
-    // Siklus 1 = tanpa siklus (toggle mati); input pengguna dibatasi 2–8.
+    // Cycle 1 = no cycle (toggle off); user input is limited to 2–8.
     if (
       !isFiniteNumber(raw.cycle) ||
       !Number.isInteger(raw.cycle) ||
@@ -160,17 +160,17 @@ export function parseSettings(value: unknown): AppSettings {
         ? raw.ambientVolume
         : DEFAULT_SETTINGS.ambientVolume,
     durations: parseDurations(raw.durations),
-    // Field ada tapi rusak → null (restore jatuh ke Pomodoro); absen =
-    // penyimpanan lama → default Custom.
+    // Field present but corrupt → null (restore falls back to Pomodoro);
+    // absent = old storage → the Custom default.
     custom: 'custom' in raw ? parseCustom(raw.custom) : DEFAULT_SETTINGS.custom,
   }
 }
 
 interface SettingsState {
   settings: AppSettings
-  /** false = IndexedDB tidak bisa diandalkan; riwayat sesi mati, timer tetap jalan. */
+  /** false = IndexedDB cannot be relied on; session history is off, the timer keeps running. */
   databaseAvailable: boolean
-  /** true = pengaturan tersimpan sudah terbaca; sebelum itu tema boot tidak boleh ditimpa default 'system'. */
+  /** true = stored settings have been read; before that the boot theme must not be overridden by the 'system' default. */
   settingsLoaded: boolean
   setTheme: (theme: ThemeChoice) => void
   setLastMethod: (method: string) => void
@@ -181,13 +181,13 @@ interface SettingsState {
   setNotifications: (notifications: boolean) => void
   setAmbient: (ambient: AmbientSound) => void
   setAmbientVolume: (ambientVolume: number) => void
-  /** Setel/hapus override durasi satu metode (null = kembali bawaan). */
+  /** Set/clear one method's duration override (null = back to defaults). */
   setDuration: (methodId: EditableMethodId, override: DurationOverride | null) => void
-  /** Ganti konfigurasi Custom (dipakai panel pengaturan dan penerapan preset). */
+  /** Replace the Custom configuration (used by the settings panel and preset apply). */
   setCustom: (custom: StoredCustom | null) => void
-  /** Pilih metode Custom, mengisi konfigurasi default bila belum ada. */
+  /** Select the Custom method, filling in the default configuration if missing. */
   selectCustom: () => void
-  /** Kembalikan seluruh durasi (override + Custom) ke bawaan metode. */
+  /** Return all durations (overrides + Custom) to the method defaults. */
   resetDurations: () => void
   load: () => Promise<void>
 }
@@ -196,12 +196,12 @@ function persistLocal(settings: AppSettings): void {
   write(SETTINGS_KEY, STORAGE_VERSION, settings)
 }
 
-/** Registry metode ikut diperbarui setiap pengaturan berubah (PRD F3). */
+/** The method registry is updated on every settings change (PRD F3). */
 function applyMethods(settings: AppSettings): void {
   configureMethods({ durations: settings.durations, custom: settings.custom })
 }
 
-/** Atur registry metode dari pengaturan lokal secara sinkron (jalur boot). */
+/** Set the method registry from local settings synchronously (boot path). */
 export function configureMethodsFromLocal(): void {
   const local = read<unknown>(SETTINGS_KEY, null)
   applyMethods(parseSettings(local))
@@ -211,15 +211,15 @@ async function persistDb(settings: AppSettings): Promise<void> {
   try {
     await db.settings.put({ id: 'app', value: settings })
   } catch (error) {
-    console.warn('Ritme: pengaturan gagal disimpan ke IndexedDB', error)
+    console.warn('Ritme: failed to save settings to IndexedDB', error)
     useSettings.setState({ databaseAvailable: false })
   }
 }
 
 export const useSettings = create<SettingsState>()((set, get) => {
-  // Pilihan yang dibuat saat pemuatan masih berjalan (tema diklik sebelum
-  // IndexedDB terbaca) sudah disimpan save(); nilai baca di bawah diambil
-  // lebih awal dan tidak boleh menimpanya.
+  // Choices made while loading is still in progress (theme clicked before
+  // IndexedDB is read) are already saved by save(); the values read below
+  // were taken earlier and must not override them.
   let changedDuringLoad = false
 
   const save = (patch: Partial<AppSettings>) => {
@@ -260,9 +260,9 @@ export const useSettings = create<SettingsState>()((set, get) => {
     resetDurations: () => save({ durations: {}, custom: { ...DEFAULT_CUSTOM, presetName: null } }),
     load: async () => {
       changedDuringLoad = false
-      // localStorage ditulis sinkron oleh save() sebelum antrian IndexedDB —
-      // sumber yang lebih baru, jadi menang bila ada. IndexedDB hanya cadangan
-      // (mencadangkan bila localStorage kosong/tidak utuh).
+      // localStorage is written synchronously by save() before the IndexedDB
+      // queue — the newer source, so it wins when present. IndexedDB is only a
+      // backup (it covers the case where localStorage is empty/intact).
       const rawLocal = read<unknown>(SETTINGS_KEY, null)
       const local =
         rawLocal !== null && typeof rawLocal === 'object' && !Array.isArray(rawLocal)
@@ -274,7 +274,7 @@ export const useSettings = create<SettingsState>()((set, get) => {
         const row = await db.settings.get('app')
         if (row) fromDb = parseSettings(row.value)
       } catch (error) {
-        console.warn('Ritme: IndexedDB tidak tersedia', error)
+        console.warn('Ritme: IndexedDB unavailable', error)
         set({ databaseAvailable: false })
       }
 
@@ -289,7 +289,7 @@ export const useSettings = create<SettingsState>()((set, get) => {
       }
 
       if (!storageWorks()) {
-        console.warn('Ritme: localStorage tidak bisa ditulis, preferensi tidak bertahan')
+        console.warn('Ritme: localStorage is not writable, preferences will not persist')
       }
     },
   }

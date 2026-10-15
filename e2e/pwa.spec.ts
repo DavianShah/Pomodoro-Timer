@@ -1,17 +1,15 @@
 import { expect, test } from '@playwright/test'
 
 /**
- * Pemasangan PWA (PRD F15): tombol teks di footer hanya muncul saat browser
- * menawarkan pemasangan dan hilang setelah terpasang — tanpa banner.
- * Event browser dipancarkan manual; jalur pemasangan aslinya milik browser.
+ * PWA install (PRD F15): the footer text button only appears when the browser
+ * offers installation and disappears once installed — no banner. Browser
+ * events are dispatched manually; the real install path belongs to the browser.
  */
 
-test('tombol Pasang aplikasi: muncul saat ditawarkan, hilang setelah terpasang', async ({
-  page,
-}) => {
+test('Install app button: appears when offered, disappears once installed', async ({ page }) => {
   await page.goto('/')
 
-  const button = page.getByRole('button', { name: 'Pasang aplikasi' })
+  const button = page.getByRole('button', { name: 'Install app' })
   await expect(button).toHaveCount(0)
 
   await page.evaluate(() => {
@@ -21,7 +19,7 @@ test('tombol Pasang aplikasi: muncul saat ditawarkan, hilang setelah terpasang',
   })
   await expect(button).toBeVisible()
 
-  // Satu prompt dari browser; tombol hilang setelah dipakai maupun setelah terpasang.
+  // One prompt from the browser; the button disappears after use and after install.
   await button.click()
   await expect(button).toHaveCount(0)
 

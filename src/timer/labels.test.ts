@@ -15,65 +15,65 @@ import {
 
 const T0 = Date.UTC(2026, 0, 5, 8, 0, 0)
 
-describe('label sesi', () => {
-  it('Pomodoro menampilkan posisi di siklus', () => {
-    expect(sessionStatus(methodById('pomodoro'), 3, 'focus')).toBe('Fokus · Sesi 3 dari 4')
+describe('session labels', () => {
+  it('Pomodoro shows the position in the cycle', () => {
+    expect(sessionStatus(methodById('pomodoro'), 3, 'focus')).toBe('Focus · Session 3 of 4')
     expect(sessionStatus(methodById('pomodoro'), 4, 'longBreak')).toBe(
-      'Istirahat panjang · Sesi 4 dari 4',
+      'Long break · Session 4 of 4',
     )
   })
 
-  it('metode tanpa siklus tetap tidak pernah menampilkan posisi sesi', () => {
-    expect(sessionStatus(methodById('flowtime'), 1, 'focus')).toBe('Fokus')
-    expect(sessionStatus(methodById('52-17'), 1, 'break')).toBe('Istirahat')
-    expect(sessionStatus(methodById('ultradian'), 1, 'focus')).toBe('Fokus')
+  it('methods without a fixed cycle never show session position', () => {
+    expect(sessionStatus(methodById('flowtime'), 1, 'focus')).toBe('Focus')
+    expect(sessionStatus(methodById('52-17'), 1, 'break')).toBe('Break')
+    expect(sessionStatus(methodById('ultradian'), 1, 'focus')).toBe('Focus')
   })
 
-  it('label fase berbahasa Indonesia', () => {
-    expect(phaseLabel('focus')).toBe('Fokus')
-    expect(phaseLabel('break')).toBe('Istirahat')
-    expect(phaseLabel('longBreak')).toBe('Istirahat panjang')
+  it('phase labels are in English', () => {
+    expect(phaseLabel('focus')).toBe('Focus')
+    expect(phaseLabel('break')).toBe('Break')
+    expect(phaseLabel('longBreak')).toBe('Long break')
   })
 
-  it('label tombol utama mengikuti fase dan mode metode', () => {
-    expect(primaryLabel(createTimer('pomodoro'))).toBe('Mulai')
-    expect(primaryLabel(start(createTimer('pomodoro'), T0))).toBe('Jeda')
-    const istirahat = skip(start(createTimer('pomodoro'), T0), T0)
-    expect(primaryLabel(istirahat)).toBe('Mulai istirahat')
-    // Hitung maju yang berjalan ditawarkan sebagai "Selesai".
-    expect(primaryLabel(start(createTimer('flowtime'), T0))).toBe('Selesai')
+  it('primary button label follows the phase and method mode', () => {
+    expect(primaryLabel(createTimer('pomodoro'))).toBe('Start')
+    expect(primaryLabel(start(createTimer('pomodoro'), T0))).toBe('Pause')
+    const rest = skip(start(createTimer('pomodoro'), T0), T0)
+    expect(primaryLabel(rest)).toBe('Start break')
+    // A running count-up is offered as "Finish".
+    expect(primaryLabel(start(createTimer('flowtime'), T0))).toBe('Finish')
   })
 
-  it('progres sesi: hitung mundur dari rencana fase, hitung maju selalu 0', () => {
+  it('session progress: countdown from the planned phase, count-up always 0', () => {
     expect(sessionProgress(createTimer('pomodoro'), 25 * MINUTE)).toBe(0)
     expect(sessionProgress(createTimer('pomodoro'), 10 * MINUTE)).toBe(60)
     expect(sessionProgress(start(createTimer('flowtime'), T0), 0)).toBe(0)
   })
 })
 
-describe('judul tab', () => {
-  it('saat berjalan: sisa waktu + fase', () => {
+describe('tab title', () => {
+  it('while running: remaining time + phase', () => {
     const running = start(createTimer('pomodoro'), T0)
-    expect(documentTitle(running, 25 * MINUTE, null, false)).toBe('25:00 · Fokus')
+    expect(documentTitle(running, 25 * MINUTE, null, false)).toBe('25:00 · Focus')
   })
 
-  it('saat idle: nama aplikasi', () => {
+  it('while idle: the app name', () => {
     expect(documentTitle(createTimer('pomodoro'), 25 * MINUTE, null, false)).toBe(APP_TITLE)
     expect(APP_TITLE).toBe('Ritme')
   })
 
-  it('sesi selesai saat tab tersembunyi: penanda sampai user kembali', () => {
-    expect(documentTitle(createTimer('pomodoro'), 5 * MINUTE, 'Istirahat siap', true)).toBe(
-      '● Istirahat siap',
+  it('session finished while tab hidden: marker until the user returns', () => {
+    expect(documentTitle(createTimer('pomodoro'), 5 * MINUTE, 'Break ready', true)).toBe(
+      '● Break ready',
     )
-    // Sudah kembali ke tab → penanda tidak dipakai lagi.
-    expect(documentTitle(createTimer('pomodoro'), 5 * MINUTE, 'Istirahat siap', false)).toBe(
+    // Back on the tab → the marker is no longer used.
+    expect(documentTitle(createTimer('pomodoro'), 5 * MINUTE, 'Break ready', false)).toBe(
       APP_TITLE,
     )
   })
 })
 
-describe('label Time Boxing', () => {
+describe('Time Boxing labels', () => {
   const now = new Date(2026, 0, 5, 12, 30).getTime()
   const block: BlockRow = {
     id: 'b1',
@@ -85,21 +85,21 @@ describe('label Time Boxing', () => {
   const idle = createTimer('timeboxing')
   const running = start(setBoxingEnd(idle, now + 15 * MINUTE), now - 10 * MINUTE)
 
-  it('status: penanda blok selesai, rentang blok aktif, blok berikutnya', () => {
+  it('status: finished-block marker, active block range, next block', () => {
     const ended = { ...running, running: false, endTime: now - 1_000 }
-    expect(boxingStatus(ended, [block], now)).toBe('Blok selesai')
-    expect(boxingStatus(running, [block], now)).toBe('Fokus · 11:45–12:45')
-    expect(boxingStatus(running, [], now)).toBe('Tidak ada blok berikutnya')
+    expect(boxingStatus(ended, [block], now)).toBe('Block finished')
+    expect(boxingStatus(running, [block], now)).toBe('Focus · 11:45–12:45')
+    expect(boxingStatus(running, [], now)).toBe('No next block')
   })
 
-  it('pilihan blok: hanya idle dengan endTime sudah lewat', () => {
+  it('block prompt: only idle with an endTime already past', () => {
     const ended = { ...running, running: false, endTime: now - 1_000 }
     expect(isBlockPrompt(ended, now)).toBe(true)
     expect(isBlockPrompt(running, now)).toBe(false)
     expect(isBlockPrompt({ ...ended, endTime: now + 60_000 }, now)).toBe(false)
   })
 
-  it('progres pakai panjang blok, bukan rencana fase', () => {
+  it('progress uses the block length, not the planned phase', () => {
     expect(sessionProgress(running, 10 * MINUTE, 30 * MINUTE)).toBe(67)
     expect(sessionProgress(running, 30 * MINUTE, 30 * MINUTE)).toBe(0)
     expect(sessionProgress(idle, 0)).toBe(0)

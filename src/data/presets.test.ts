@@ -9,14 +9,14 @@ beforeEach(async () => {
   await db.presets.clear()
 })
 
-describe('preset Custom', () => {
-  it('nama sama menimpa baris yang ada (alur edit), daftar tetap satu', async () => {
-    const first = await savePreset({ name: 'Pagi', ...base })
-    const second = await savePreset({ name: 'Pagi', ...base, focusMs: 50 * 60_000 })
+describe('Custom presets', () => {
+  it('the same name overwrites the existing row (edit flow), the list stays at one', async () => {
+    const first = await savePreset({ name: 'Morning', ...base })
+    const second = await savePreset({ name: 'Morning', ...base, focusMs: 50 * 60_000 })
 
     expect(first.ok).toBe(true)
     expect(second.ok).toBe(true)
-    if (!first.ok || !second.ok) throw new Error('gagal')
+    if (!first.ok || !second.ok) throw new Error('failed')
     expect(second.row.id).toBe(first.row.id)
 
     const rows = await listPresets()
@@ -24,28 +24,28 @@ describe('preset Custom', () => {
     expect(rows[0]?.focusMs).toBe(50 * 60_000)
   })
 
-  it('nama baru menambah; lewat 10 ditolak, bukan dibuang diam-diam', async () => {
+  it('a new name adds; beyond 10 is rejected, not silently dropped', async () => {
     for (let index = 0; index < MAX_PRESETS; index += 1) {
       const result = await savePreset({ name: `preset-${index}`, ...base })
       expect(result.ok).toBe(true)
     }
 
-    const extra = await savePreset({ name: 'ke-sebelas', ...base })
-    expect(extra).toEqual({ ok: false, reason: 'kapasitas' })
+    const extra = await savePreset({ name: 'the-eleventh', ...base })
+    expect(extra).toEqual({ ok: false, reason: 'capacity' })
     expect(await listPresets()).toHaveLength(MAX_PRESETS)
   })
 
-  it('preset lama tanpa createdAt tetap tampil di daftar', async () => {
-    await db.presets.put({ id: 'lama', name: 'Lama', focusMs: 25 * 60_000, breakMs: 5 * 60_000 })
-    await savePreset({ name: 'Baru', ...base })
+  it('old presets without createdAt still appear in the list', async () => {
+    await db.presets.put({ id: 'old', name: 'Old', focusMs: 25 * 60_000, breakMs: 5 * 60_000 })
+    await savePreset({ name: 'New', ...base })
 
     const rows = await listPresets()
-    expect(rows.map((row) => row.name).sort()).toEqual(['Baru', 'Lama'])
+    expect(rows.map((row) => row.name).sort()).toEqual(['New', 'Old'])
   })
 
-  it('hapus preset', async () => {
-    const saved = await savePreset({ name: 'Sebentar', ...base })
-    if (!saved.ok) throw new Error('gagal')
+  it('removes a preset', async () => {
+    const saved = await savePreset({ name: 'Brief', ...base })
+    if (!saved.ok) throw new Error('failed')
     await removePreset(saved.row.id)
     expect(await listPresets()).toHaveLength(0)
   })

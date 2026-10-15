@@ -1,15 +1,15 @@
 /**
- * Konfigurasi metode kerja = data. Mesin timer tidak punya percabangan per
- * metode; menambah metode cukup menambah entri di sini (PRD bagian 3).
+ * Work-method configuration = data. The timer engine has no per-method
+ * branching; adding a method means adding an entry here (PRD section 3).
  */
 
 export const MINUTE = 60_000
 
-/** Aturan istirahat proporsional Flowtime: langkah pertama yang memuat durasi fokus menang. */
+/** Flowtime proportional-break rule: the first step containing the focus duration wins. */
 export interface BreakStep {
-  /** Batas atas durasi fokus. */
+  /** Upper bound of the focus duration. */
   maxMs: number
-  /** true → batas ikut dihitung (<=); false → batas tidak dihitung (<). */
+  /** true → the bound is included (<=); false → excluded (<). */
   inclusive: boolean
   breakMs: number
 }
@@ -21,9 +21,9 @@ export type MethodConfig =
       mode: 'countdown'
       focusMs: number
       breakMs: number
-      /** null → tanpa istirahat panjang. */
+      /** null → no long break. */
       longBreakMs: number | null
-      /** Sesi sebelum istirahat panjang; 1 → tidak pernah. */
+      /** Sessions before a long break; 1 → never. */
       cycle: number
     }
   | {
@@ -67,7 +67,7 @@ export const METHOD_CONFIGS = [
     id: 'flowtime',
     name: 'Flowtime',
     mode: 'countup',
-    // PRD bagian 3: <25 → 5; [25,50) → 8; [50,90] → 10; >90 → 15.
+    // PRD section 3: <25 → 5; [25,50) → 8; [50,90] → 10; >90 → 15.
     focusBreak: [
       { maxMs: 25 * MINUTE, inclusive: false, breakMs: 5 * MINUTE },
       { maxMs: 50 * MINUTE, inclusive: false, breakMs: 8 * MINUTE },
@@ -79,25 +79,25 @@ export const METHOD_CONFIGS = [
   { id: 'timeboxing', name: 'Time boxing', mode: 'boxing', cycle: 1 },
 ] as const satisfies readonly MethodConfig[]
 
-/** Metode yang bisa dijalankan mesin: seluruh entri konfigurasi runnable. */
+/** Methods the engine can run: every runnable configuration entry. */
 export type RunnableMethod = MethodConfig
 
-/** Id metode berbasis durasi yang boleh dioverride pengguna (PRD F3). */
+/** Duration-based method ids the user may override (PRD F3). */
 export type EditableMethodId = 'pomodoro' | '52-17' | 'ultradian'
 
 export const EDITABLE_METHOD_IDS: readonly EditableMethodId[] = ['pomodoro', '52-17', 'ultradian']
 
-/** Konfigurasi Custom (PRD bagian 3): bebas, longBreak/cycle opsional. */
+/** Custom configuration (PRD section 3): free-form, longBreak/cycle optional. */
 export interface CustomConfig {
   focusMs: number
   breakMs: number
-  /** null → tanpa istirahat panjang. */
+  /** null → no long break. */
   longBreakMs: number | null
-  /** 1 → tanpa hitungan siklus. */
+  /** 1 → no cycle counting. */
   cycle: number
 }
 
-/** Override durasi per metode; hanya field yang diedit yang disimpan. */
+/** Per-method duration override; only edited fields are stored. */
 export interface DurationOverride {
   focusMs: number
   breakMs: number
@@ -118,8 +118,8 @@ export const DEFAULT_CUSTOM: CustomConfig = {
 }
 
 /**
- * Batas validasi (menit) — PRD F3: tolak di luar rentang, jangan diam-diam
- * dibulatkan. Satu sumber kebenaran untuk parse pengaturan dan input UI.
+ * Validation limits (minutes) — PRD F3: reject out-of-range values, never
+ * silently round. Single source of truth for settings parsing and UI inputs.
  */
 export const DURATION_LIMITS = {
   focus: { min: 1, max: 180 },
@@ -130,7 +130,7 @@ export const DURATION_LIMITS = {
 
 export type DurationField = keyof typeof DURATION_LIMITS
 
-/** true bila `ms` (kelipatan menit utuh) atau siklus berada di rentang `field`. */
+/** true when `ms` (whole-minute multiple) or the cycle lies within `field`'s range. */
 export function inDurationRange(field: DurationField, value: number): boolean {
   const { min, max } = DURATION_LIMITS[field]
   const scale = field === 'cycle' ? 1 : MINUTE
@@ -142,11 +142,11 @@ export function inDurationRange(field: DurationField, value: number): boolean {
   )
 }
 
-// Registry runtime: pengaturan + preset mengubah resolusi metode tanpa
-// menyentuh mesin — engine tetap murni per data (PRD bagian 3).
+// Runtime registry: settings + presets change method resolution without
+// touching the engine — the engine stays pure per data (PRD section 3).
 let runtime: MethodRuntime = { durations: {}, custom: null }
 
-/** Terapkan pengaturan terbaru ke registry metode. Dipanggil dari settings. */
+/** Apply the latest settings to the method registry. Called from settings. */
 export function configureMethods(next: MethodRuntime): void {
   runtime = { durations: next.durations, custom: next.custom }
 }
@@ -158,9 +158,9 @@ function resolveCountdown(base: (typeof METHOD_CONFIGS)[number]): RunnableMethod
 }
 
 /**
- * Ambil konfigurasi metode. Id tak dikenal atau metode yang belum tersedia
- * (mis. Custom tanpa konfigurasi karena data rusak) jatuh ke Pomodoro
- * supaya mesin tidak pernah menerima konfigurasi kosong.
+ * Get a method configuration. An unknown id, or a method not yet available
+ * (e.g. Custom without configuration due to corrupt data), falls back to
+ * Pomodoro so the engine never receives an empty configuration.
  */
 export function methodById(id: EditableMethodId): Extract<RunnableMethod, { mode: 'countdown' }>
 export function methodById(id: string): RunnableMethod
@@ -177,27 +177,27 @@ export function methodById(id: string): RunnableMethod {
 }
 
 /**
- * Entri pemilih metode untuk Custom — selalu tampil walau konfigurasi
- * belum ada (nilai default untuk baris detail). Mesin memakai `methodById`.
+ * Method-picker entry for Custom — always shown even without configuration
+ * (default values for the detail line). The engine uses `methodById`.
  */
 export function customMethod(): RunnableMethod {
   return { id: 'custom', name: 'Custom', mode: 'countdown', ...(runtime.custom ?? DEFAULT_CUSTOM) }
 }
 
-/** Nama metode untuk label statistik — tetap "Custom" walau konfigurasi hilang. */
+/** Method name for stats labels — stays "Custom" even if the configuration is gone. */
 export function methodName(id: string): string {
   if (id === 'custom') return 'Custom'
   return METHOD_CONFIGS.find((method) => method.id === id)?.name ?? METHOD_CONFIGS[0].name
 }
 
-/** Baris pendek di pemilih metode, dihitung dari konfigurasi supaya tidak melenceng. */
+/** Short line in the method picker, computed from config so it can't drift. */
 export function methodDetail(config: MethodConfig): string {
-  if (config.mode === 'boxing') return 'Sesuai blok'
-  if (config.mode === 'countup') return 'Hitung maju'
-  return `${config.focusMs / MINUTE} menit`
+  if (config.mode === 'boxing') return 'Follows blocks'
+  if (config.mode === 'countup') return 'Counts up'
+  return `${config.focusMs / MINUTE} min`
 }
 
-/** Istirahat Flowtime dari durasi fokus yang baru saja selesai. */
+/** Flowtime break for the focus duration that just finished. */
 export function breakForFocus(config: MethodConfig, focusMs: number): number | null {
   if (config.mode !== 'countup') return null
   const step = config.focusBreak.find((item) =>

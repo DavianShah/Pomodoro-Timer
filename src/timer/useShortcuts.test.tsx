@@ -1,12 +1,12 @@
 /**
- * Tabel keputusan shortcut (PRD F7): semua metode × {idle, berjalan,
- * paused/ber akhir} × {Spasi, R, S}. Baris kritisnya Time Boxing — Spasi
- * saat berjalan tidak memanggil aksi apa pun (blok hanya ditutup lewat
- * tombol Selesai atau S); Spasi saat idle memanggil start, dan mesin yang
- * menolak kalau tidak ada blok aktif (`engine.start`).
+ * Shortcut decision table (PRD F7): all methods × {idle, running,
+ * paused/ended} × {Space, R, S}. The critical row is Time Boxing — Space
+ * while running calls no action at all (the block is only closed via the
+ * Finish button or S); Space while idle calls start, and the engine rejects
+ * it when there is no active block (`engine.start`).
  *
- * Hook dipasang lewat probe kecil; berkas ini juga memastikan satu tekanan
- * menghasilkan tepat satu aksi (listener ganda akan terlihat di sini).
+ * The hook is mounted via a small probe; this file also proves that one
+ * keypress produces exactly one action (double listeners would show up here).
  */
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -18,7 +18,7 @@ import { useTimerShortcuts } from './useShortcuts'
 import type { TimerApi } from './useTimer'
 
 const NOW = 1_700_000_000_000
-const KINDS = ['idle', 'berjalan', 'paused/ber akhir'] as const
+const KINDS = ['idle', 'running', 'paused/ended'] as const
 const KEYS = [' ', 'R', 'S'] as const
 
 type Kind = (typeof KINDS)[number]
@@ -27,26 +27,26 @@ const ACTIONS: readonly Action[] = ['start', 'pause', 'skip', 'reset']
 
 afterEach(cleanup)
 
-/** State per metode per keadaan; jam tetap NOW supaya deterministik. */
+/** State per method per kind; the clock stays at NOW so it is deterministic. */
 function stateFor(config: MethodConfig, kind: Kind): TimerState {
   const idle = createTimer(config.id)
   if (config.mode === 'boxing') {
     if (kind === 'idle') return setBoxingEnd(idle, NOW + 30 * MINUTE)
-    if (kind === 'berjalan') return startPhase(setBoxingEnd(idle, NOW + 30 * MINUTE), NOW)
-    // Blok sudah lewat: baris pilihan "ber akhir".
+    if (kind === 'running') return startPhase(setBoxingEnd(idle, NOW + 30 * MINUTE), NOW)
+    // Block already past: the "ended" row of the picker.
     return setBoxingEnd(idle, NOW - MINUTE)
   }
   if (kind === 'idle') return idle
   const running = startPhase(idle, NOW)
-  return kind === 'berjalan' ? running : pausePhase(running, NOW + MINUTE)
+  return kind === 'running' ? running : pausePhase(running, NOW + MINUTE)
 }
 
-/** Aksi yang seharusnya dipanggil hook untuk satu baris tabel. */
+/** Actions the hook should call for one row of the table. */
 function expected(config: MethodConfig, kind: Kind, key: string): Action[] {
   if (key === 'R') return ['reset']
   if (key === 'S') return ['skip']
-  if (config.mode === 'boxing') return kind === 'berjalan' ? [] : ['start']
-  return kind === 'berjalan' ? ['pause'] : ['start']
+  if (config.mode === 'boxing') return kind === 'running' ? [] : ['start']
+  return kind === 'running' ? ['pause'] : ['start']
 }
 
 function Probe({ timer }: { timer: TimerApi }): null {
@@ -84,7 +84,7 @@ function makeTimer(config: MethodConfig, kind: Kind, spies: Spies): TimerApi {
   }
 }
 
-/** Lipatan aksi terpanggil — mendeteksi listener ganda. */
+/** Fold of called actions — detects double listeners. */
 function collect(spies: Spies): Action[] {
   const fired: Action[] = []
   for (const action of ACTIONS) {
@@ -111,19 +111,19 @@ const ROWS = METHOD_CONFIGS.flatMap((config) =>
   ),
 )
 
-describe('tabel keputusan shortcut (F7)', () => {
+describe('shortcut decision table (F7)', () => {
   it.each(ROWS)('$name', ({ config, kind, key }) => {
     expect(press(config, kind, key)).toEqual(expected(config, kind, key))
   })
 
-  it('Spasi di Time Boxing berjalan tidak menyentuh aksi Selesai (skip)', () => {
+  it('Space in running Time Boxing does not touch the Finish (skip) action', () => {
     const boxing = METHOD_CONFIGS.find((config) => config.mode === 'boxing')
-    if (boxing === undefined) throw new Error('metode Time Boxing tidak ada')
-    expect(press(boxing, 'berjalan', ' ')).toEqual([])
+    if (boxing === undefined) throw new Error('Time Boxing method missing')
+    expect(press(boxing, 'running', ' ')).toEqual([])
   })
 })
 
-describe('Spasi dan fokus tombol', () => {
+describe('Space and button focus', () => {
   interface Outcome {
     fired: Action[]
     keydownPrevented: boolean
@@ -131,9 +131,10 @@ describe('Spasi dan fokus tombol', () => {
   }
 
   /**
-   * Spasi: semantik shortcut global jalan di mana pun fokus (kecuali
-   * input); aktivasi native dicegah hanya pada tombol aksi utama karena
-   * labelnya berubah di bawah fokus (Mulai→Jeda, Mulai→Selesai).
+   * Space: the global shortcut semantics run wherever focus is (except
+   * inputs); native activation is prevented only on the primary action
+   * button because its label changes underneath focus (Start→Pause,
+   * Start→Finish).
    */
   function pressAt(config: RunnableMethod, kind: Kind, selector: string): Outcome {
     const spies = makeSpies()
@@ -141,19 +142,19 @@ describe('Spasi dan fokus tombol', () => {
       <>
         <Probe timer={makeTimer(config, kind, spies)} />
         <button type="button" data-primary-action="">
-          Aksi utama
+          Primary action
         </button>
-        <button type="button">Tombol lain</button>
-        <input aria-label="catatan" />
+        <button type="button">Other button</button>
+        <input aria-label="notes" />
       </>,
     )
     const target = selector === 'window' ? window : view.container.querySelector(selector)
-    if (target === null) throw new Error(`target ${selector} tidak ditemukan`)
+    if (target === null) throw new Error(`target ${selector} not found`)
 
     let keydownPrevented = false
     let keyupPrevented = false
-    // Spy terpasang setelah efek shortcut: urutan listener membuatnya
-    // membaca defaultPrevented SETELAH handler shortcut jalan.
+    // Spies attach after the shortcut effect: listener order makes them read
+    // defaultPrevented AFTER the shortcut handler runs.
     window.addEventListener(
       'keydown',
       (event: KeyboardEvent) => {
@@ -174,34 +175,34 @@ describe('Spasi dan fokus tombol', () => {
     return { fired: collect(spies), keydownPrevented, keyupPrevented }
   }
 
-  it('tombol aksi utama, Pomodoro berjalan: shortcut jeda sekali, aktivasi native dibatalkan', () => {
-    const outcome = pressAt(methodById('pomodoro'), 'berjalan', '[data-primary-action]')
+  it('primary action button, running Pomodoro: shortcut pauses once, native activation cancelled', () => {
+    const outcome = pressAt(methodById('pomodoro'), 'running', '[data-primary-action]')
     expect(outcome.fired).toEqual(['pause'])
     expect(outcome.keydownPrevented).toBe(true)
     expect(outcome.keyupPrevented).toBe(true)
   })
 
-  it('tombol aksi utama, Time Boxing berjalan: tanpa aksi dan native dibatalkan', () => {
-    const outcome = pressAt(methodById('timeboxing'), 'berjalan', '[data-primary-action]')
+  it('primary action button, running Time Boxing: no action and native cancelled', () => {
+    const outcome = pressAt(methodById('timeboxing'), 'running', '[data-primary-action]')
     expect(outcome.fired).toEqual([])
     expect(outcome.keydownPrevented).toBe(true)
     expect(outcome.keyupPrevented).toBe(true)
   })
 
-  it('tombol lain: aktivasi native tetap, shortcut tetap jalan', () => {
-    const outcome = pressAt(methodById('pomodoro'), 'berjalan', 'button:not([data-primary-action])')
+  it('other button: native activation stays, shortcut still runs', () => {
+    const outcome = pressAt(methodById('pomodoro'), 'running', 'button:not([data-primary-action])')
     expect(outcome.fired).toEqual(['pause'])
     expect(outcome.keydownPrevented).toBe(false)
     expect(outcome.keyupPrevented).toBe(false)
   })
 
-  it('di input: Spasi mengetik, shortcut tidak jalan', () => {
+  it('in an input: Space types, the shortcut does not run', () => {
     const outcome = pressAt(methodById('pomodoro'), 'idle', 'input')
     expect(outcome.fired).toEqual([])
     expect(outcome.keydownPrevented).toBe(false)
   })
 
-  it('di luar kontrol: Spasi dicegah (anti-scroll) lalu shortcut jalan', () => {
+  it('outside controls: Space is prevented (anti-scroll) then the shortcut runs', () => {
     const outcome = pressAt(methodById('pomodoro'), 'idle', 'window')
     expect(outcome.fired).toEqual(['start'])
     expect(outcome.keydownPrevented).toBe(true)

@@ -1,4 +1,4 @@
-/** Nilai yang aman disimpan di localStorage. Interval timer tidak ikut ke sini. */
+/** Values that are safe to store in localStorage. Timer intervals do not go here. */
 export type StoredValue =
   | string
   | number
@@ -15,7 +15,7 @@ export interface PersistedRecord {
   value: unknown
 }
 
-/** localStorage terblokir atau dikuota: cukup ditanyai sekali per muat halaman. */
+/** localStorage blocked or quota-limited: probed only once per page load. */
 let storageProbe: boolean | null = null
 
 export function storageWorks(): boolean {
@@ -54,7 +54,7 @@ export function write(name: string, version: number, value: unknown): void {
       JSON.stringify({ v: version, value } satisfies PersistedRecord),
     )
   } catch {
-    // Kuota penuh: timer tetap jalan, hanya preferensi yang tidak tersimpan.
+    // Quota full: the timer keeps running, only preferences are not saved.
     storageProbe = false
   }
 }
@@ -64,7 +64,7 @@ export function clear(name: string): void {
   localStorage.removeItem(`${KEY_PREFIX}${name}`)
 }
 
-/** true untuk nilai apa pun yang bisa lewat JSON tanpa berubah bentuk. */
+/** true for any value that can round-trip through JSON unchanged. */
 export function isStoredValue(value: unknown): value is StoredValue {
   if (value === null || value === undefined) return true
   const type = typeof value

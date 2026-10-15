@@ -2,16 +2,16 @@ import { expect, test, type Page } from '@playwright/test'
 
 declare global {
   interface Window {
-    /** Nilai `data-theme` yang terpasang selama sesi halaman (untuk deteksi kilatan). */
+    /** `data-theme` values set during the page session (flash detection). */
     __themeSeen: string[]
-    /** Pelanggaran CSP yang tertangkap `securitypolicyviolation`. */
+    /** CSP violations caught by `securitypolicyviolation`. */
     __cspViolations: string[]
-    /** Penanda yang hanya bisa terisi bila script inline tidak diblokir. */
+    /** Marker that can only be set when inline scripts are not blocked. */
     __inlineRan?: boolean
   }
 }
 
-/** Catat setiap nilai data-theme yang terpasang — bukti tidak ada kilatan. */
+/** Record every data-theme value set — proof there is no flash. */
 function trackThemeValues(page: Page): void {
   void page.addInitScript(() => {
     const seen: string[] = []
@@ -27,21 +27,21 @@ function trackThemeValues(page: Page): void {
   })
 }
 
-test('pilihan tema bertahan setelah reload, boot sebelum first-paint', async ({ page }) => {
+test('theme choice survives a reload, booted before first paint', async ({ page }) => {
   trackThemeValues(page)
   await page.goto('/')
-  await page.getByRole('radio', { name: 'Gelap' }).check({ force: true })
+  await page.getByRole('radio', { name: 'Dark' }).check({ force: true })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
-  // Nilai pertama yang terpasang = dark (oleh theme-boot.js), bukan terang lalu gelap.
+  // The first value set = dark (by theme-boot.js), not light then dark.
   const seen = await page.evaluate(() => window.__themeSeen)
   expect(seen[0]).toBe('dark')
   expect(seen).not.toContain('light')
 
-  // theme-boot.js selesai diambil sebelum catatan first-paint.
+  // theme-boot.js finishes fetching before the first-paint entry.
   const timing = await page.evaluate(() => {
     const boot = performance
       .getEntriesByType('resource')
@@ -52,12 +52,12 @@ test('pilihan tema bertahan setelah reload, boot sebelum first-paint', async ({ 
     return { boot: boot?.startTime ?? null, firstPaint: firstPaint?.startTime ?? null }
   })
   if (timing.boot === null || timing.firstPaint === null) {
-    throw new Error(`timing tidak terukur: ${JSON.stringify(timing)}`)
+    throw new Error(`timing not measurable: ${JSON.stringify(timing)}`)
   }
   expect(timing.boot).toBeLessThan(timing.firstPaint)
 })
 
-test('tema sistem mengikuti preferensi OS dan berubah saat OS berubah', async ({ page }) => {
+test('system theme follows the OS preference and changes when the OS changes', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
@@ -66,8 +66,8 @@ test('tema sistem mengikuti preferensi OS dan berubah saat OS berubah', async ({
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 })
 
-test('jendela mini ikut tema gelap', async ({ page }) => {
-  // Paksa jalur fallback: PiP asli tidak bisa diuji headless.
+test('mini window follows the dark theme', async ({ page }) => {
+  // Force the fallback path: real PiP cannot be tested headless.
   await page.addInitScript(() => {
     Object.defineProperty(window, 'documentPictureInPicture', {
       value: undefined,
@@ -75,17 +75,17 @@ test('jendela mini ikut tema gelap', async ({ page }) => {
     })
   })
   await page.goto('/')
-  await page.getByRole('radio', { name: 'Gelap' }).check({ force: true })
+  await page.getByRole('radio', { name: 'Dark' }).check({ force: true })
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
   const popupPromise = page.waitForEvent('popup')
-  await page.getByRole('button', { name: 'Jendela mini' }).click()
+  await page.getByRole('button', { name: 'Mini window' }).click()
   const popup = await popupPromise
   await expect(popup.locator('html')).toHaveAttribute('data-theme', 'dark')
   await popup.close()
 })
 
-test('nol pelanggaran CSP saat memakai aplikasi; script inline diblokir', async ({ page }) => {
+test('zero CSP violations while using the app; inline scripts are blocked', async ({ page }) => {
   await page.addInitScript(() => {
     window.__cspViolations = []
     document.addEventListener('securitypolicyviolation', (event) => {
@@ -94,18 +94,18 @@ test('nol pelanggaran CSP saat memakai aplikasi; script inline diblokir', async 
   })
   await page.goto('/')
 
-  // Pakai beberapa jalur render: panel statistik, ganti tema, buka petunjuk.
-  await page.getByRole('button', { name: 'Statistik', exact: true }).click()
+  // Exercise several render paths: stats panel, theme switch, open the hints.
+  await page.getByRole('button', { name: 'Statistics', exact: true }).click()
   await expect(page.locator('#panel-statistik')).toBeVisible()
   await page.keyboard.press('Escape')
-  await page.getByRole('radio', { name: 'Gelap' }).check({ force: true })
+  await page.getByRole('radio', { name: 'Dark' }).check({ force: true })
   await page.getByRole('button', { name: '?', exact: true }).click()
   await expect(page.locator('#petunjuk-shortcut')).toBeVisible()
 
   const violations = await page.evaluate(() => window.__cspViolations)
   expect(violations).toEqual([])
 
-  // Bukti penegakan: script inline yang disisipkan memang diblokir meta CSP.
+  // Enforcement proof: an injected inline script is indeed blocked by the CSP meta.
   await page.evaluate(() => {
     const script = document.createElement('script')
     script.textContent = 'window.__inlineRan = true'

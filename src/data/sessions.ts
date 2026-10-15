@@ -1,11 +1,11 @@
 /**
- * Repository sesi fokus (PRD bagian 9).
+ * Focus session repository (PRD section 9).
  *
- * Idempotensi: `put` dengan id stabil — transisi yang sama yang terbaca
- * dua kali (mis. StrictMode/pemulihan ganda) menimpa baris yang sama,
- * bukan membuat duplikat. Jumlah sesi per task selalu DIHITUNG ULANG dari
- * tabel sessions, bukan ditambah, supaya tetap benar walau rekaman yang
- * sama masuk dua kali. Yang dihitung hanya `completed = true`.
+ * Idempotency: `put` with a stable id — the same transition read twice
+ * (e.g. StrictMode/double restore) overwrites the same row instead of
+ * creating a duplicate. The per-task session count is always RECOMPUTED
+ * from the sessions table, never incremented, so it stays correct even when
+ * the same record arrives twice. Only `completed = true` rows are counted.
  */
 import { db, type SessionRow } from '@/db/db'
 
@@ -22,8 +22,8 @@ export async function putFocusSession(session: SessionRow): Promise<void> {
   })
 }
 
-/** Baca sesi lewat indeks `date` sampai (termasuk) kunci hari — rentang ke atas,
- * dipakai panel statistik (F10) tanpa memindai seluruh riwayat. */
+/** Read sessions via the `date` index up to (and including) the day key — an
+ * upward range, used by the stats panel (F10) without scanning all history. */
 export async function loadSessionsThrough(throughDate: string): Promise<SessionRow[]> {
   return db.sessions.where('date').belowOrEqual(throughDate).toArray()
 }

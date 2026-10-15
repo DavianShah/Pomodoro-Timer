@@ -26,7 +26,7 @@ beforeEach(async () => {
 })
 
 describe('putFocusSession', () => {
-  it('menyimpan satu baris sesi', async () => {
+  it('stores a single session row', async () => {
     const session = makeSession()
     await putFocusSession(session)
 
@@ -34,8 +34,8 @@ describe('putFocusSession', () => {
     expect(await db.sessions.get(session.id)).toEqual(session)
   })
 
-  it('idempoten: id sama diproses dua kali → satu baris, hitungan tetap benar', async () => {
-    const task = await addTask('Laporan', 1)
+  it('idempotent: the same id twice → one row, the count stays correct', async () => {
+    const task = await addTask('Report', 1)
     const session = makeSession({ taskId: task.id })
 
     await putFocusSession(session)
@@ -45,20 +45,20 @@ describe('putFocusSession', () => {
     expect((await db.tasks.get(task.id))?.sessionCount).toBe(1)
   })
 
-  it('sessionCount hanya menghitung sesi completed', async () => {
-    const task = await addTask('Laporan', 1)
+  it('sessionCount only counts completed sessions', async () => {
+    const task = await addTask('Report', 1)
 
     await putFocusSession(makeSession({ id: 'a', taskId: task.id, completed: true }))
     await putFocusSession(makeSession({ id: 'b', taskId: task.id, completed: true }))
-    // Batal di tengah: tidak ikut dihitung, walau ditulis terakhir.
+    // Cancelled midway: not counted, even though written last.
     await putFocusSession(makeSession({ id: 'c', taskId: task.id, completed: false }))
 
     expect(await db.sessions.count()).toBe(3)
     expect((await db.tasks.get(task.id))?.sessionCount).toBe(2)
   })
 
-  it('tanpa taskId: sesi tersimpan, task lain tidak tersentuh', async () => {
-    const other = await addTask('Lain', 1)
+  it('without a taskId: the session is stored, other tasks are untouched', async () => {
+    const other = await addTask('Other', 1)
     await putFocusSession(makeSession({ id: 'x' }))
 
     expect(await db.sessions.count()).toBe(1)
@@ -68,14 +68,14 @@ describe('putFocusSession', () => {
 })
 
 describe('loadSessionsThrough', () => {
-  it('mengambil sesi dari indeks date sampai kunci hari itu saja', async () => {
-    await putFocusSession(makeSession({ id: 'lama', date: '2026-01-01' }))
-    await putFocusSession(makeSession({ id: 'batas', date: '2026-01-05' }))
-    await putFocusSession(makeSession({ id: 'besok', date: '2026-01-06' }))
+  it('reads sessions from the date index up to that day key only', async () => {
+    await putFocusSession(makeSession({ id: 'old', date: '2026-01-01' }))
+    await putFocusSession(makeSession({ id: 'boundary', date: '2026-01-05' }))
+    await putFocusSession(makeSession({ id: 'tomorrow', date: '2026-01-06' }))
 
     const rows = await loadSessionsThrough('2026-01-05')
     const ids = rows.map((row) => row.id).sort()
 
-    expect(ids).toEqual(['batas', 'lama'])
+    expect(ids).toEqual(['boundary', 'old'])
   })
 })

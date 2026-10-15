@@ -27,9 +27,9 @@ import { localDateKey, type FocusEndAction } from './sessionRecord'
 import type { TimerWorkerEvent } from './protocol'
 
 /**
- * Catat ujung sesi fokus dari aksi manual. Lewati/reset saat fase fokus
- * (termasuk idle — builder menolak durasi nol) itu ujung sesi; fase lain
- * bukan urusan pencatatan.
+ * Record a focus-session end from a manual action. Skip/reset during the
+ * focus phase (including idle — the builder rejects zero durations) is a
+ * session end; other phases are not a recording concern.
  */
 function recordFocusEnd(
   prev: TimerState,
@@ -41,47 +41,47 @@ function recordFocusEnd(
     if (prev.phase === 'focus') void recordFocusSession(prev, 'reset', at)
     return
   }
-  // Boxing menutup sesi tanpa ganti fase — endsFocusSession yang mendeteksi.
+  // Boxing closes a session without a phase change — endsFocusSession detects it.
   if (endsFocusSession(prev, next)) void recordFocusSession(prev, action, at)
 }
 
 export interface TimerApi {
   state: TimerState
-  /** Waktu terakhir yang diketahui layar (epoch ms). */
+  /** Last time known to the screen (epoch ms). */
   now: number
-  /** Nilai jam: sisa waktu, atau durasi berjalan untuk hitung maju. */
+  /** Clock value: remaining time, or elapsed duration for count-up. */
   display: number
-  /** false saat timer berjalan — metode tidak boleh diganti di tengah jalan. */
+  /** false while the timer runs — the method cannot change mid-run. */
   methodEditable: boolean
-  /** true kalau browser menolak unlock audio — indikator kecil ditampilkan. */
+  /** true when the browser refuses the audio unlock — a small indicator is shown. */
   soundBlocked: boolean
   start: () => void
   pause: () => void
   skip: () => void
   reset: () => void
-  /** Time Boxing: setel/bersihkan akhir blok saat tidak berjalan (prompt). */
+  /** Time Boxing: set/clear the block end while not running (prompt). */
   setBoxingEnd: (endMs: number | null) => void
-  /** Time Boxing: lanjut dari blok yang baru diperpanjang (auto-resume). */
+  /** Time Boxing: resume from a freshly extended block (auto-resume). */
   resumeAt: (endMs: number) => void
 }
 
 /**
- * Sambungan mesin timer ke React: state reducer murni di engine.ts, jam dari
- * Worker (interval tidak di-throttle), aksi memakai Date.now() sebagai jam.
- * Pulih dari localStorage saat muat (F8), simpan setiap transisi, dan jalankan
- * efek sesi selesai (F5): alarm, notifikasi, penanda judul tab.
+ * Timer-engine wiring to React: pure state reducer in engine.ts, clock from
+ * the Worker (interval not throttled), actions use Date.now() as the clock.
+ * Restores from localStorage on load (F8), saves every transition, and runs
+ * the finished-session effects (F5): alarm, notification, tab-title marker.
  */
 export function useTimer(): TimerApi {
   const methodId = useSettings((state) => state.settings.lastMethod)
   const [state, setState] = useState<TimerState>(() => {
-    // Registry metode (durasi/Custom) dari localStorage dulu — sinkron,
-    // sebelum restore memakai methodById (PRD F3).
+    // Method registry (durations/Custom) from localStorage first — synchronous,
+    // before restore uses methodById (PRD F3).
     configureMethodsFromLocal()
     const raw = read<unknown>('timer', null)
     const at = Date.now()
     const restored = restoreTimer(raw, at)
-    // Fokus yang berakhir selama tab tertutup: catat sekali. Id diturunkan
-    // dari state mentah yang sama → pemulihan ganda tidak menggandakan sesi.
+    // Focus that ended while the tab was closed: record once. The id derives
+    // from the same raw state → a double restore does not duplicate the session.
     const boxingClosed =
       isTimerShape(raw) &&
       raw.running &&
@@ -102,21 +102,22 @@ export function useTimer(): TimerApi {
   const [completionMarker, setCompletionMarker] = useState<string | null>(null)
   const [alarmState, setAlarmState] = useState(getAlarmState)
 
-  // Referensi sinkron untuk jalur worker/aplikasi aksi; efek di bawah
-  // menyamakannya setelah commit (perubahan lewat render-adjust hanya terjadi
-  // saat idle, ketika worker tidak berjalan).
+  // Synchronous reference for the worker/action path; the effect below syncs
+  // it after commit (render-adjust changes only happen while idle, when the
+  // worker is not running).
   const stateRef = useRef(state)
   useEffect(() => {
     stateRef.current = state
   })
   useEffect(() => subscribeAlarm(() => setAlarmState(getAlarmState())), [])
 
-  // Wake Lock (F14): layar menyala selama timer jalan dan pengaturan hidup.
+  // Wake Lock (F14): the screen stays on while the timer runs and the setting is on.
   const wakeLockEnabled = useSettings((state) => state.settings.wakeLock)
   useWakeLock(state.running && wakeLockEnabled)
 
-  // Suara ambient (F13): ikut status jalan dan hasil unlock audio. Menunggu
-  // alarmState 'ready' menutup balapan unlock (resume AudioContext asinkron).
+  // Ambient sound (F13): follows run state and the audio unlock result.
+  // Waiting for alarmState 'ready' closes the unlock race (asynchronous
+  // AudioContext resume).
   const ambient = useSettings((state) => state.settings.ambient)
   const ambientVolume = useSettings((state) => state.settings.ambientVolume)
   useEffect(() => {
@@ -128,38 +129,38 @@ export function useTimer(): TimerApi {
     setAmbientVolume(ambientVolume)
   }, [ambientVolume])
 
-  // Ganti metode hanya saat idle (PRD F3), termasuk saat settings selesai
-  // dimuat dari penyimpanan. Timer yang dipulih tidak ditimpa kalau metodenya
-  // sama. Pola "adjust state during render" — bukan efek.
+  // Method changes only while idle (PRD F3), including when settings finish
+  // loading from storage. A restored timer is not overwritten when its method
+  // matches. "Adjust state during render" pattern — not an effect.
   const [prevMethodId, setPrevMethodId] = useState(methodId)
   if (prevMethodId !== methodId && !state.running) {
     setPrevMethodId(methodId)
     if (state.method !== methodId) setState(createTimer(methodId))
   }
 
-  // Durasi metode berubah (panel pengaturan / muat pengaturan) → render ulang
-  // berikut terpicu oleh langganan ini; kunci dilacak walau berjalan supaya
-  // perubahan yang terjadi saat sesi berjalan tidak me-reset timer dijeda.
+  // Method durations changed (settings panel / settings load) → the next
+  // re-render is triggered by this subscription; the key is tracked even while
+  // running so changes made mid-session do not reset a paused timer.
   const durations = useSettings((state) => state.settings.durations)
   const customConfig = useSettings((state) => state.settings.custom)
   const durationKey = `${JSON.stringify(durations)}|${JSON.stringify(customConfig)}`
   const [prevDurationKey, setPrevDurationKey] = useState(durationKey)
   if (prevDurationKey !== durationKey) {
     setPrevDurationKey(durationKey)
-    // Hanya fase fokus yang dibangun ulang; istirahat yang sedang jaga
-    // selesai dengan sisa yang tersimpan, lalu memakai durasi baru.
+    // Only the focus phase is rebuilt; a paused break finishes with the
+    // stored remaining time, then uses the new duration.
     if (!state.running && state.phase === 'focus') setState(createTimer(state.method))
   }
 
-  // Simpan tiap transisi: tick yang tidak menyelesaikan mengembalikan
-  // referensi sama → efek tidak jalan → tidak ada tulis per detik.
+  // Save every transition: a tick that completes nothing returns the same
+  // reference → the effect does not run → no write per second.
   useEffect(() => {
     saveTimer(state)
   }, [state])
 
-  // Time Boxing: endTime = akhir blok hari ini — sinkron dari store selama
-  // idle, tidak saat sesi berjalan (endTime jangkar) atau prompt (penanda).
-  // Pola "adjust state during render" seperti ganti metode di atas.
+  // Time Boxing: endTime = today's block end — synced from the store while
+  // idle, not during a running session (endTime is the anchor) or a prompt
+  // (it is a marker). "Adjust state during render" pattern as above.
   if (
     methodById(state.method).mode === 'boxing' &&
     !state.running &&
@@ -171,20 +172,20 @@ export function useTimer(): TimerApi {
     if (endMs !== state.endTime) setState(setBoxingEnd(state, endMs))
   }
 
-  // Lewat tengah malam: blok hari ini perlu dimuat ulang (jalur eksternal).
+  // Past midnight: today's blocks must be reloaded (external path).
   useEffect(() => {
     if (methodById(state.method).mode !== 'boxing') return
     if (useBlocks.getState().date !== localDateKey(now)) void useBlocks.getState().load()
   }, [state.method, now])
 
-  // Time Boxing idle: jam berdetak tiap detik (hitung mundur ke akhir blok).
+  // Time Boxing idle: the clock ticks every second (countdown to block end).
   useEffect(() => {
     if (methodById(state.method).mode !== 'boxing' || state.running) return undefined
     const id = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(id)
   }, [state.method, state.running])
 
-  // Judul tab (PRD F5).
+  // Tab title (PRD F5).
   useEffect(() => {
     document.title = documentTitle(
       state,
@@ -194,7 +195,7 @@ export function useTimer(): TimerApi {
     )
   }, [state, now, completionMarker])
 
-  // Penanda hilang begitu user kembali ke tab.
+  // The marker disappears as soon as the user returns to the tab.
   useEffect(() => {
     const onVisibility = (): void => {
       if (document.visibilityState === 'visible') setCompletionMarker(null)
@@ -220,12 +221,12 @@ export function useTimer(): TimerApi {
         if (phaseChanged || boxingEnd) {
           const settings = useSettings.getState().settings
           if (settings.alarmEnabled) playAlarm(settings.alarmSound)
-          if (settings.notifications) notifyPhaseDone(boxingEnd ? 'Blok' : phaseLabel(prev.phase))
+          if (settings.notifications) notifyPhaseDone(boxingEnd ? 'Block' : phaseLabel(prev.phase))
           if (document.visibilityState === 'hidden') {
-            setCompletionMarker(boxingEnd ? 'Blok selesai' : `${phaseLabel(next.phase)} siap`)
+            setCompletionMarker(boxingEnd ? 'Block finished' : `${phaseLabel(next.phase)} ready`)
           }
           if (endsFocusSession(prev, next)) {
-            // Pencatatan dari transisi, bukan tick: satu sesi per akhir fokus.
+            // Recording from the transition, not the tick: one session per focus end.
             void recordFocusSession(prev, 'auto', at)
           }
         }
@@ -255,7 +256,7 @@ export function useTimer(): TimerApi {
     setCompletionMarker(null)
     unlockAlarm()
     if (useSettings.getState().settings.notifications) requestNotifyPermission()
-    // Time Boxing: blok yang dicover berstatus running.
+    // Time Boxing: the covered block becomes running.
     if (methodById(stateRef.current.method).mode === 'boxing' && stateRef.current.running) {
       void useBlocks.getState().markRunning(Date.now())
     }
@@ -270,7 +271,7 @@ export function useTimer(): TimerApi {
     [apply],
   )
 
-  // Lanjut dari blok yang baru diperpanjang: setel akhir baru lalu jalan.
+  // Resume from a freshly extended block: set the new end, then run.
   const resumeAt = useCallback(
     (endMs: number) => {
       apply((current, at) => startPhase(setBoxingEnd(current, endMs), at))

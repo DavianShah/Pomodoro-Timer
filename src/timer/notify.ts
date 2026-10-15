@@ -1,7 +1,7 @@
 /**
- * Web Notification untuk sesi selesai (PRD F5).
- * Izin diminta saat user pertama kali menekan Mulai — sekali saja, tanpa
- * nag berulang (guard permission === 'default').
+ * Web Notification for finished sessions (PRD F5).
+ * Permission is requested when the user first presses Start — once only,
+ * no repeated nagging (guard on permission === 'default').
  */
 
 import { APP_TITLE } from './labels'
@@ -13,16 +13,16 @@ export function requestNotifyPermission(): void {
 }
 
 /**
- * Kirim notifikasi hanya kalau tab tidak sedang aktif dan terlihat.
- * Tab aktif → cukup suara + perubahan UI.
+ * Send a notification only when the tab is not active and visible.
+ * Active tab → sound + UI change is enough.
  */
 export function notifyPhaseDone(doneLabel: string): void {
   if (typeof Notification === 'undefined') return
   if (Notification.permission !== 'granted') return
   if (document.visibilityState === 'visible' && document.hasFocus()) return
   try {
-    new Notification(APP_TITLE, { body: `${doneLabel} selesai` })
+    new Notification(APP_TITLE, { body: `${doneLabel} finished` })
   } catch {
-    // Browser bisa melempar untuk notifikasi tanpa Service Worker; abaikan.
+    // Browsers may throw for notifications without a Service Worker; ignore.
   }
 }

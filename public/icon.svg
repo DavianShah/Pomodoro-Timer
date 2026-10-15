@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ritme">
   <!--
-    Sumber ikon Ritme: deret segmen siklus + garis aksen (DESIGN.md).
-    Warna = token di src/styles/tokens.css, tanpa gradien.
-    PNG diturunkan dari berkas ini dengan inkscape (export png, lebar 192 dan 512).
-    Glyph diskalakan ke 75% (translate 8 8 lalu scale 0.75) supaya masuk zona aman
-    maskable (lingkaran 80% di tengah): satu berkas untuk ikon biasa dan maskable.
+    Ritme icon source: cycle segment strip + accent line (DESIGN.md).
+    Colors = tokens in src/styles/tokens.css, flat fills only.
+    PNGs are derived from this file with inkscape (export png, width 192 and 512).
+    The glyph is scaled to 75% (translate 8 8 then scale 0.75) to fit the maskable safe
+    zone (80% circle at the center): one file for both the regular and maskable icons.
   -->
   <rect width="64" height="64" rx="8" fill="#f2eee6" />
   <g transform="translate(8 8) scale(0.75)">

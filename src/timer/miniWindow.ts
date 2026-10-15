@@ -1,11 +1,11 @@
 /**
- * Jendela mini (PRD bagian 6 / F4). Satu sumber kebenaran tetap di halaman
- * utama: window mini hanya menampilkan state dan mengirim aksi. Buka/tutup
- * hanya lewat aksi user (klik/keydown), tidak pernah otomatis.
+ * Mini window (PRD section 6 / F4). The single source of truth stays on the
+ * main page: the mini window only displays state and sends actions. It opens
+ * and closes only through user actions (click/keydown), never automatically.
  *
- * Dokumen window mini disiapkan dengan mengklon elemen <link
- * rel="stylesheet"> — proyek punya CSP dan menyalin cssRules ke <style>
- * inline bisa terblokir; @font-face ikut termuat dari stylesheet yang sama.
+ * The mini window document is prepared by cloning <link rel="stylesheet">
+ * elements — the project has a CSP, and copying cssRules into an inline
+ * <style> could be blocked; @font-face loads from the same stylesheet too.
  */
 
 import { APP_TITLE } from './labels'
@@ -25,9 +25,10 @@ interface PipLike {
 type MiniHost = Window & { documentPictureInPicture?: PipLike }
 
 /**
- * Buka window mini. Cara utama: Document PiP (deteksi via `'documentPictureInPicture'
- * in window`, bukan user agent). PiP tidak ada/ditolak → fallback `window.open`;
- * popup diblokir → `ok: false` supaya layar menampilkan pesan, bukan gagal diam-diam.
+ * Open the mini window. Primary path: Document PiP (detected via
+ * `'documentPictureInPicture' in window`, not the user agent). PiP missing
+ * or denied → `window.open` fallback; popup blocked → `ok: false` so the
+ * screen shows a message instead of failing silently.
  */
 export async function openMiniWindow(host: Window): Promise<MiniOpenResult> {
   if ('documentPictureInPicture' in host) {
@@ -38,7 +39,7 @@ export async function openMiniWindow(host: Window): Promise<MiniOpenResult> {
         return { ok: true, kind: 'pip', win }
       }
     } catch {
-      // Ditolak/gagal → jatuh ke popup.
+      // Denied/failed → fall back to a popup.
     }
   }
   const popup = host.open('', 'ritme-mini', POPUP_FEATURES)
@@ -50,11 +51,11 @@ export function closeMiniWindow(win: Window): void {
   try {
     win.close()
   } catch {
-    // Sudah tertutup — bukan kesalahan.
+    // Already closed — not an error.
   }
 }
 
-/** Salin data-theme dan data-phase ke window mini (aksen per fase + mode terang/gelap). */
+/** Copy data-theme and data-phase to the mini window (per-phase accent + light/dark mode). */
 export function syncThemeAndPhase(source: HTMLElement, target: HTMLElement): void {
   for (const name of ['data-theme', 'data-phase'] as const) {
     const value = source.getAttribute(name)
@@ -63,7 +64,7 @@ export function syncThemeAndPhase(source: HTMLElement, target: HTMLElement): voi
   }
 }
 
-/** Siapkan dokumen window mini: stylesheet klon, atribut tema/fase, akar render. */
+/** Prepare the mini window document: cloned stylesheets, theme/phase attributes, render root. */
 export function prepareMiniDocument(source: Document, target: Window): void {
   const doc = target.document
   doc.title = APP_TITLE

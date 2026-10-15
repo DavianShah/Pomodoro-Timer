@@ -1,18 +1,18 @@
 /**
- * Repository preset Custom (PRD bagian 9, Tabel Preset). Simpan-per-nama:
- * nama yang sama menimpa barisnya (alur edit), nama baru menambah baris
- * baru dengan batas maksimal.
+ * Custom preset repository (PRD section 9, Preset Table). Save-per-name:
+ * an existing name overwrites its row (edit flow), a new name adds a new
+ * row up to the maximum.
  */
 import { db, type PresetRow } from '@/db/db'
 
-/** Batas jumlah preset (PRD bagian 9). */
+/** Preset count limit (PRD section 9). */
 export const MAX_PRESETS = 10
 
-export type SavePresetResult = { ok: true; row: PresetRow } | { ok: false; reason: 'kapasitas' }
+export type SavePresetResult = { ok: true; row: PresetRow } | { ok: false; reason: 'capacity' }
 
 /**
- * Daftar preset, terlama dulu. `toArray` + urut manual (bukan `orderBy`):
- * baris dari skema lama tanpa `createdAt` tetap ikut meski belum terindeks.
+ * Preset list, oldest first. `toArray` + manual sort (not `orderBy`): rows
+ * from the old schema without `createdAt` still show up even though unindexed.
  */
 export async function listPresets(): Promise<PresetRow[]> {
   const rows = await db.presets.toArray()
@@ -31,7 +31,7 @@ export interface PresetInput {
   cycle: number
 }
 
-/** Simpan preset: nama sama = perbarui, nama baru = tambah (tolak bila penuh). */
+/** Save preset: same name = update, new name = add (rejected when full). */
 export async function savePreset(input: PresetInput): Promise<SavePresetResult> {
   const existing = await db.presets.where('name').equals(input.name).first()
   const row: PresetRow = {
@@ -44,7 +44,7 @@ export async function savePreset(input: PresetInput): Promise<SavePresetResult> 
     createdAt: existing?.createdAt ?? Date.now(),
   }
   if (existing === undefined && (await db.presets.count()) >= MAX_PRESETS) {
-    return { ok: false, reason: 'kapasitas' }
+    return { ok: false, reason: 'capacity' }
   }
   await db.presets.put(row)
   return { ok: true, row }

@@ -1,8 +1,8 @@
 /**
- * Kunci syarat PWA (F15) yang bisa lolos diam-diam kalau berkas diubah
- * tangan: manifest memenuhi ketentuan pemasangan, warnanya sama dengan
- * token, ikon diturunkan dari satu SVG tanpa gradien dan berwarna token,
- * tag theme-color di index.html ikut token.
+ * PWA requirement locks (F15) that could silently slip through if files are
+ * edited by hand: the manifest meets install requirements, its colors match
+ * the tokens, the icon is derived from one SVG with no gradients and token
+ * colors, and the theme-color tag in index.html follows the tokens.
  */
 import { describe, expect, it } from 'vitest'
 import { TOKENS } from '@/styles/tokens.generated'
@@ -42,17 +42,17 @@ const iconSvg = textAssets['../../public/icon.svg']!
 const indexHtml = htmlFiles['../../index.html']!
 
 describe('manifest (F15)', () => {
-  it('nama, bahasa, display, start_url dan warna ikut token', () => {
+  it('name, language, display, start_url and colors follow the tokens', () => {
     expect(manifest.name).toBe('Ritme')
     expect(manifest.short_name).toBe('Ritme')
-    expect(manifest.lang).toBe('id')
+    expect(manifest.lang).toBe('en')
     expect(manifest.display).toBe('standalone')
     expect(manifest.start_url).toBe('/')
-    expect(manifest.theme_color).toBe(TOKENS.terang.paper)
-    expect(manifest.background_color).toBe(TOKENS.terang.paper)
+    expect(manifest.theme_color).toBe(TOKENS.light.paper)
+    expect(manifest.background_color).toBe(TOKENS.light.paper)
   })
 
-  it('ikon 192, 512, dan maskable tersedia', () => {
+  it('192, 512, and maskable icons are available', () => {
     expect(manifest.icons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ sizes: '192x192' }),
@@ -67,8 +67,8 @@ describe('manifest (F15)', () => {
   })
 })
 
-describe('ikon', () => {
-  it('satu SVG sederhana: tanpa gradien, semua warna dari token', () => {
+describe('icon', () => {
+  it('one simple SVG: no gradients, all colors from tokens', () => {
     expect(iconSvg).not.toMatch(/gradient/i)
     expect(iconSvg).not.toMatch(/\p{Extended_Pictographic}/u)
 
@@ -80,7 +80,7 @@ describe('ikon', () => {
     for (const fill of fills) expect(tokenColors.has(fill)).toBe(true)
   })
 
-  it('glyph dipadatkan ke zona aman maskable (skala <= 0.8)', () => {
+  it('glyph is padded into the maskable safe zone (scale <= 0.8)', () => {
     const scale = /scale\(([\d.]+)\)/.exec(iconSvg)
     expect(scale).not.toBeNull()
     expect(Number(scale![1])).toBeLessThanOrEqual(0.8)
@@ -88,10 +88,10 @@ describe('ikon', () => {
 })
 
 describe('index.html', () => {
-  it('theme-color mengikuti token terang dan gelap', () => {
+  it('theme-color follows the light and dark tokens', () => {
     const colors = [...indexHtml.matchAll(/name="theme-color" content="(#[0-9a-fA-F]{6})"/g)].map(
       (match) => match[1]!.toLowerCase(),
     )
-    expect(colors).toEqual([TOKENS.terang.paper, TOKENS.gelap.paper])
+    expect(colors).toEqual([TOKENS.light.paper, TOKENS.dark.paper])
   })
 })

@@ -9,24 +9,24 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
-describe('useTasks saat IndexedDB gagal', () => {
-  it('load gagal: tidak melempar, daftar kosong, databaseAvailable false', async () => {
-    vi.spyOn(dataTasks, 'listTasks').mockRejectedValue(new Error('IDB mati'))
+describe('useTasks when IndexedDB fails', () => {
+  it('load fails: does not throw, list stays empty, databaseAvailable false', async () => {
+    vi.spyOn(dataTasks, 'listTasks').mockRejectedValue(new Error('IDB down'))
 
     await expect(useTasks.getState().load()).resolves.toBeUndefined()
     expect(useTasks.getState().tasks).toEqual([])
     expect(useSettings.getState().databaseAvailable).toBe(false)
   })
 
-  it('add gagal: tidak melempar, ditandai tidak tersedia', async () => {
-    vi.spyOn(dataTasks, 'addTask').mockRejectedValue(new Error('IDB mati'))
+  it('add fails: does not throw, flagged as unavailable', async () => {
+    vi.spyOn(dataTasks, 'addTask').mockRejectedValue(new Error('IDB down'))
 
-    await expect(useTasks.getState().add('Tugas')).resolves.toBeUndefined()
+    await expect(useTasks.getState().add('Task')).resolves.toBeUndefined()
     expect(useSettings.getState().databaseAvailable).toBe(false)
   })
 
-  it('remove gagal: tidak melempar', async () => {
-    vi.spyOn(dataTasks, 'removeTask').mockRejectedValue(new Error('IDB mati'))
+  it('remove fails: does not throw', async () => {
+    vi.spyOn(dataTasks, 'removeTask').mockRejectedValue(new Error('IDB down'))
 
     await expect(useTasks.getState().remove('x')).resolves.toBeUndefined()
     expect(useSettings.getState().databaseAvailable).toBe(false)

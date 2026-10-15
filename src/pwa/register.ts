@@ -2,9 +2,9 @@ import { registerSW } from 'virtual:pwa-register'
 import { bindUpdateApply, useSwUpdate } from './update'
 
 /**
- * Cek pembaruan service worker tiap 15 menit; pemasangan tetap menunggu
- * aksi user, dan versi baru tidak memuat ulang sendiri (PRD F15) —
- * `onNeedRefresh` cukup menyalakan baris di `update.ts`.
+ * Check for service worker updates every 15 minutes; installation still
+ * waits for a user action, and a new version never reloads on its own
+ * (PRD F15) — `onNeedRefresh` merely lights up the row in `update.ts`.
  */
 export function initServiceWorker(): void {
   if (import.meta.env.DEV) return

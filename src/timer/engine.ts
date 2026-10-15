@@ -1,32 +1,32 @@
 /**
- * Mesin timer murni. Semua transisi menerima `now` (epoch ms) sehingga bisa
- * diuji dengan fake timers. Waktu selalu diturunkan dari `endTime` (timestamp),
- * bukan akumulasi tick — aman terhadap sleep/tab background (PRD F1).
+ * Pure timer engine. Every transition takes `now` (epoch ms) so it can be
+ * tested with fake timers. Time always derives from `endTime` (timestamp),
+ * not tick accumulation — safe against sleep/background tabs (PRD F1).
  *
- * Metode = konfigurasi data (`methods.ts`); tidak ada if/else per metode di sini.
+ * Methods are data configuration (`methods.ts`); no per-method if/else here.
  */
 
 import type { Phase } from '@/db/db'
 import { breakForFocus, methodById } from './methods'
 
 export interface TimerState {
-  /** Id konfigurasi metode yang sedang dipakai. */
+  /** Id of the method configuration in use. */
   method: string
   phase: Phase
   running: boolean
-  /** Posisi sesi dalam siklus, 1-based. */
+  /** Session position within the cycle, 1-based. */
   cycleIndex: number
-  /** Countdown yang sedang berjalan: akhir fase dalam epoch ms. */
+  /** Running countdown: phase end in epoch ms. */
   endTime: number | null
-  /** Countdown yang tidak berjalan: sisa waktu fase ini. */
+  /** Paused countdown: remaining time in this phase. */
   remainingMs: number | null
-  /** Hitung maju (Flowtime): akumulasi waktu fokus. */
+  /** Count-up (Flowtime): accumulated focus time. */
   elapsedMs: number
-  /** Hitung maju yang sedang berjalan: saat mulai. */
+  /** Running count-up: start moment. */
   startedAt: number | null
 }
 
-/** Rencana durasi fase untuk konfigurasi countdown. */
+/** Planned phase duration for countdown configurations. */
 export function plannedPhaseMs(methodId: string, phase: Phase): number {
   const method = methodById(methodId)
   if (method.mode !== 'countdown') return 0
@@ -52,7 +52,7 @@ export function createTimer(methodId: string): TimerState {
 export function start(state: TimerState, now: number): TimerState {
   if (state.running) return state
   const method = methodById(state.method)
-  // Time Boxing: mulai hanya saat masih di dalam blok (endTime = akhir blok).
+  // Time Boxing: start only while still inside a block (endTime = block end).
   if (method.mode === 'boxing') {
     if (state.endTime === null || state.endTime <= now) return state
     return { ...state, running: true, startedAt: now, remainingMs: null }
@@ -67,11 +67,11 @@ export function start(state: TimerState, now: number): TimerState {
 
 export function pause(state: TimerState, now: number): TimerState {
   if (!state.running) return state
-  // Time Boxing: blok berjalan mengikuti jam dinding — jeda tak berarti.
+  // Time Boxing: a running block follows the wall clock — pausing is meaningless.
   if (methodById(state.method).mode === 'boxing') return state
 
   if (state.endTime !== null) {
-    // Countdown: sisa dihitung ulang dari timestamp, bukan dari tick.
+    // Countdown: remaining is recomputed from the timestamp, not from ticks.
     return {
       ...state,
       running: false,
@@ -79,21 +79,21 @@ export function pause(state: TimerState, now: number): TimerState {
       remainingMs: Math.max(0, state.endTime - now),
     }
   }
-  // Hitung maju: akumulasikan lalu berhenti.
+  // Count-up: accumulate then stop.
   const accumulated = state.elapsedMs + (state.startedAt !== null ? now - state.startedAt : 0)
   return { ...state, running: false, startedAt: null, elapsedMs: accumulated }
 }
 
 /**
- * Fase selesai (otomatis lewat `tick` atau manual lewat `skip`/`finish`).
- * Fase berikutnya selalu berdiri sebagai tidak berjalan; PRD bagian 5:
- * tombol utama berubah jadi "Mulai istirahat", bukan langsung jalan.
+ * Phase finished (automatically via `tick` or manually via `skip`/`finish`).
+ * The next phase always stands not running; PRD section 5: the primary
+ * button becomes "Start break" instead of starting immediately.
  */
 function complete(state: TimerState, now: number): TimerState {
   const method = methodById(state.method)
   if (method.mode === 'boxing') {
-    // Akhir blok: berhenti tanpa ganti fase; endTime dipertahankan sebagai
-    // penanda "blok selesai" sampai user memilih keluar dari prompt.
+    // Block end: stop without changing phase; endTime is kept as the
+    // "block finished" marker until the user leaves the prompt.
     return { ...state, running: false, startedAt: null, elapsedMs: 0, remainingMs: null }
   }
 
@@ -122,7 +122,7 @@ function complete(state: TimerState, now: number): TimerState {
     }
   }
 
-  // Dari istirahat kembali fokus; siklus melingkar.
+  // From break back to focus; the cycle wraps around.
   return {
     ...state,
     phase: 'focus',
@@ -135,7 +135,7 @@ function complete(state: TimerState, now: number): TimerState {
   }
 }
 
-/** Pulse dari Worker: selesaikan countdown yang sudah lewat `endTime`. */
+/** Pulse from the Worker: complete a countdown past its `endTime`. */
 export function tick(state: TimerState, now: number): TimerState {
   if (state.running && state.endTime !== null && state.endTime <= now) {
     return complete(state, now)
@@ -144,38 +144,38 @@ export function tick(state: TimerState, now: number): TimerState {
 }
 
 /**
- * Setel akhir blok Time Boxing (epoch ms). Hanya saat tidak berjalan — selama
- * sesi berjalan endTime adalah jangkar sesi. null = tidak ada blok aktif.
+ * Set the Time Boxing block end (epoch ms). Only while not running — during a
+ * running session endTime is the session anchor. null = no active block.
  */
 export function setBoxingEnd(state: TimerState, endMs: number | null): TimerState {
   if (state.running || state.endTime === endMs) return state
   return { ...state, endTime: endMs, remainingMs: endMs === null ? 0 : null }
 }
 
-/** Lewati fase sekarang; untuk Time Boxing menutup blok yang berjalan. */
+/** Skip the current phase; for Time Boxing this closes the running block. */
 export function skip(state: TimerState, now: number): TimerState {
   return complete(state, now)
 }
 
-/** Reset ke awal metode. */
+/** Reset to the start of the method. */
 export function reset(state: TimerState): TimerState {
   return createTimer(state.method)
 }
 
-/** True bila transisi menutup sesi fokus: ganti fase, atau blok selesai (boxing). */
+/** True when the transition ends a focus session: phase change, or block finished (boxing). */
 export function endsFocusSession(prev: TimerState, next: TimerState): boolean {
   if (prev.phase !== 'focus') return false
   if (prev.phase !== next.phase) return true
   return methodById(prev.method).mode === 'boxing' && prev.running && !next.running
 }
 
-/** Sisa waktu (countdown) untuk ditampilkan; 0 bila fase sudah berakhir. */
+/** Remaining time (countdown) to display; 0 once the phase has ended. */
 export function remaining(state: TimerState, now: number): number {
   if (state.endTime !== null) return Math.max(0, state.endTime - now)
   return state.remainingMs ?? 0
 }
 
-/** Durasi berjalan (hitung maju). Untuk countdown selalu 0. */
+/** Elapsed duration (count-up). Always 0 for countdowns. */
 export function elapsed(state: TimerState, now: number): number {
   const method = methodById(state.method)
   if (method.mode !== 'countup' || state.phase !== 'focus') return 0
@@ -183,7 +183,7 @@ export function elapsed(state: TimerState, now: number): number {
 }
 
 /**
- * Nilai jam layar. Hitung maju menampilkan elapsed; sisanya menampilkan sisa.
+ * On-screen clock value. Count-up shows elapsed; everything else shows remaining.
  */
 export function displayMs(state: TimerState, now: number): number {
   const method = methodById(state.method)
@@ -191,10 +191,14 @@ export function displayMs(state: TimerState, now: number): number {
   return remaining(state, now)
 }
 
-/** Format `mm:ss` (menit tanpa batas, detik dua digit) — PRD bagian 7. */
+/**
+ * Format `mm:ss` (two-digit minutes and seconds; minutes over 99 grow) — PRD
+ * section 7. Always two-digit: `05:00`, never `5:00`, so the digits keep a
+ * fixed width and the clock never shifts.
+ */
 export function formatClock(ms: number): string {
   const totalSeconds = Math.ceil(Math.max(0, ms) / 1000)
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }

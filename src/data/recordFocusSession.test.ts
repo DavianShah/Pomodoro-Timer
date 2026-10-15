@@ -29,22 +29,22 @@ function seedActiveTask(taskId: string): void {
 }
 
 describe('readActiveTaskId', () => {
-  it('membaca task aktif dari penyimpanan lokal', () => {
+  it('reads the active task from local storage', () => {
     seedActiveTask('t1')
     expect(readActiveTaskId()).toBe('t1')
   })
 
-  it('tanpa pengaturan → null', () => {
+  it('without settings → null', () => {
     expect(readActiveTaskId()).toBeNull()
   })
 })
 
 describe('recordFocusSession', () => {
-  it('mencatat sesi ke task yang aktif saat sesi berakhir', async () => {
-    const task = await addTask('Laporan', 1)
+  it('records the session against the task that was active when it ended', async () => {
+    const task = await addTask('Report', 1)
     seedActiveTask(task.id)
 
-    // Flowtime (hitung maju): "Selesai" di menit ke-5.
+    // Flowtime (count-up): "Finish" at minute 5.
     const prev = start(createTimer('flowtime'), T0)
     const session = await recordFocusSession(prev, 'skip', T0 + 5 * MINUTE)
 
@@ -52,12 +52,12 @@ describe('recordFocusSession', () => {
     expect(session?.taskId).toBe(task.id)
     expect(await db.sessions.get(session?.id ?? '')).toBeDefined()
     expect((await db.tasks.get(task.id))?.sessionCount).toBe(1)
-    // Ringkasan daftar tersimpan juga tersinkron.
+    // The stored settings summary is in sync too.
     expect(read<unknown>(SETTINGS_KEY, null)).not.toBeNull()
   })
 
-  it('sesi Custom membawa nama preset sebagai methodLabel', async () => {
-    const custom = { ...DEFAULT_CUSTOM, focusMs: 40 * MINUTE, presetName: 'Pulih' }
+  it('a Custom session carries the preset name as methodLabel', async () => {
+    const custom = { ...DEFAULT_CUSTOM, focusMs: 40 * MINUTE, presetName: 'Recovery' }
     write(SETTINGS_KEY, STORAGE_VERSION, {
       theme: 'system',
       lastMethod: 'custom',
@@ -70,10 +70,10 @@ describe('recordFocusSession', () => {
     const session = await recordFocusSession(prev, 'skip', T0 + 5 * MINUTE)
 
     expect(session?.method).toBe('custom')
-    expect(session?.methodLabel).toBe('Pulih')
+    expect(session?.methodLabel).toBe('Recovery')
   })
 
-  it('sesi Custom tanpa preset → tanpa methodLabel', async () => {
+  it('a Custom session without a preset → no methodLabel', async () => {
     const custom = { ...DEFAULT_CUSTOM, focusMs: 40 * MINUTE, presetName: null }
     write(SETTINGS_KEY, STORAGE_VERSION, {
       theme: 'system',
@@ -90,7 +90,7 @@ describe('recordFocusSession', () => {
     expect(session?.methodLabel).toBeUndefined()
   })
 
-  it('tanpa task aktif → sesi tetap tercatat tanpa taskId', async () => {
+  it('no active task → the session is still recorded without a taskId', async () => {
     const prev = start(createTimer('flowtime'), T0)
     const session = await recordFocusSession(prev, 'skip', T0 + 2 * MINUTE)
 
@@ -98,16 +98,16 @@ describe('recordFocusSession', () => {
     expect(await db.sessions.count()).toBe(1)
   })
 
-  it('skenario idle tidak menghasilkan sesi', async () => {
+  it('an idle scenario produces no session', async () => {
     const session = await recordFocusSession(createTimer('pomodoro'), 'skip', T0)
     expect(session).toBeNull()
     expect(await db.sessions.count()).toBe(0)
   })
 
-  it('IndexedDB gagal → tidak melempar, mengembalikan null', async () => {
-    const task = await addTask('Laporan', 1)
+  it('IndexedDB fails → does not throw, returns null', async () => {
+    const task = await addTask('Report', 1)
     seedActiveTask(task.id)
-    vi.spyOn(db.sessions, 'put').mockRejectedValueOnce(new Error('IDB mati'))
+    vi.spyOn(db.sessions, 'put').mockRejectedValueOnce(new Error('IDB down'))
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const prev = start(createTimer('flowtime'), T0)

@@ -1,9 +1,9 @@
 import { useSwUpdate } from './update'
 
 /**
- * Baris pembaruan service worker (PRD F15): satu baris `role="status"`,
- * user yang memutuskan muat ulang. Tidak ditampilkan selama timer
- * berjalan — muncul begitu timer berhenti.
+ * Service worker update row (PRD F15): one `role="status"` line, the user
+ * decides whether to reload. Hidden while the timer runs — it appears as
+ * soon as the timer stops.
  */
 export default function UpdateNotice({ running }: { running: boolean }) {
   const ready = useSwUpdate((state) => state.ready)
@@ -16,13 +16,13 @@ export default function UpdateNotice({ running }: { running: boolean }) {
       role="status"
       className="mt-4 flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm"
     >
-      <span className="text-ink-muted">Versi baru tersedia.</span>
+      <span className="text-ink-muted">A new version is available.</span>
       <button
         type="button"
         onClick={reload}
         className="rounded-md border border-line-strong px-4 py-2 text-sm text-ink transition-colors hover:border-ink-muted"
       >
-        Muat ulang
+        Reload
       </button>
     </div>
   )

@@ -13,9 +13,9 @@ export interface SessionRow {
   actualMs: number
   taskId?: string
   completed: boolean
-  /** Tanggal lokal sesi (`YYYY-MM-DD`) — grouping harian langsung (M4a). */
+  /** Local session date (`YYYY-MM-DD`) — direct daily grouping (M4a). */
   date: string
-  /** Nama preset Custom saat sesi (sublabel statistik); absen = metode lain. */
+  /** Custom preset name at session time (stats sub-label); absent = other methods. */
   methodLabel?: string
 }
 
@@ -23,7 +23,7 @@ export interface TaskRow {
   id: string
   title: string
   createdAt: number
-  /** Saat ditandai selesai; hilang (undefined) = kembali aktif. */
+  /** When marked done; missing (undefined) = active again. */
   doneAt?: number | undefined
   sessionCount: number
 }
@@ -46,7 +46,7 @@ export interface PresetRow {
   breakMs: number
   longBreakMs?: number
   cycle?: number
-  /** Waktu simpan — urutan daftar preset (v4); absen pada baris skema lama. */
+  /** Save time — preset list order (v4); absent on old-schema rows. */
   createdAt?: number
 }
 
@@ -71,18 +71,18 @@ db.version(1).stores({
   settings: 'id',
 })
 
-// v2: indeks `date` pada sessions untuk pengelompokan harian (F10 nanti).
+// v2: the `date` index on sessions for daily grouping (F10 later).
 db.version(2).stores({
   sessions: 'id, startedAt, method, taskId, kind, date',
 })
 
-// v3: tabel blocks dipakai penuh oleh Time Boxing (F16) — status blok
-// kini alur hidup planned → running → done/overrun; indeks tidak berubah.
+// v3: the blocks table is fully used by Time Boxing (F16) — block status
+// is now the lifecycle planned → running → done/overrun; indexes unchanged.
 db.version(3).stores({
   blocks: 'id, date, startMin, [date+startMin]',
 })
 
-// v4: preset Custom (F3) — indeks createdAt untuk urutan daftar.
+// v4: Custom presets (F3) — the createdAt index for list order.
 db.version(4).stores({
   presets: 'id, name, createdAt',
 })

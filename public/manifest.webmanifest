@@ -1,14 +1,14 @@
 {
   "name": "Ritme",
   "short_name": "Ritme",
-  "description": "Timer fokus multi-metode. Akurat, tanpa akun, data tetap di perangkat.",
+  "description": "Multi-method focus timer. Accurate, no account, data stays on your device.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#f2eee6",
   "theme_color": "#f2eee6",
-  "lang": "id",
+  "lang": "en",
   "dir": "ltr",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" },

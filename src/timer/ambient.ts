@@ -1,29 +1,29 @@
 /**
- * Suara ambient (PRD F13): hujan, kipas, brown noise — disintesis dengan
- * Web Audio, tanpa berkas audio dan tanpa dependensi. Loop dimulai saat
- * timer berjalan dan berhenti saat jeda/selesai; satu sumber suara.
+ * Ambient sound (PRD F13): rain, fan, brown noise — synthesized with Web
+ * Audio, no audio files and no dependencies. The loop starts while the
+ * timer runs and stops on pause/finish; one sound source at a time.
  *
- * Konfigurasi tiap jenis adalah data (filter + modulasi); menambah jenis
- * cukup menambah entri, pola yang sama dengan metode timer.
+ * Each kind's configuration is data (filter + modulation); adding a kind
+ * means adding an entry, same pattern as timer methods.
  */
 import { getAudioContext } from './alarm'
 
-export type AmbientSound = 'off' | 'hujan' | 'kipas' | 'brown'
+export type AmbientSound = 'off' | 'rain' | 'fan' | 'brown'
 
 export interface AmbientConfig {
   noise: 'white' | 'brown'
   filterType: BiquadFilterType
   frequency: number
   q: number
-  /** Modulasi amplitudo lambat supaya tidak terdengar seperti statis. */
+  /** Slow amplitude modulation so it does not sound like static. */
   lfoHz: number
   lfoDepth: number
-  /** Gain dasar sebelum volume pengguna. */
+  /** Base gain before user volume. */
   gain: number
 }
 
 export const AMBIENT_CONFIGS: Record<Exclude<AmbientSound, 'off'>, AmbientConfig> = {
-  hujan: {
+  rain: {
     noise: 'white',
     filterType: 'highpass',
     frequency: 500,
@@ -32,7 +32,7 @@ export const AMBIENT_CONFIGS: Record<Exclude<AmbientSound, 'off'>, AmbientConfig
     lfoDepth: 0.1,
     gain: 0.35,
   },
-  kipas: {
+  fan: {
     noise: 'brown',
     filterType: 'lowpass',
     frequency: 420,
@@ -66,7 +66,7 @@ let brownBuffer: AudioBuffer | null = null
 function noiseBuffer(ctx: AudioContext, kind: 'white' | 'brown'): AudioBuffer {
   const cached = kind === 'white' ? whiteBuffer : brownBuffer
   if (cached !== null) return cached
-  // Empat detik: cukup panjang supaya loop tidak terasa berulang.
+  // Four seconds: long enough that the loop does not feel repetitive.
   const length = Math.floor(ctx.sampleRate * 4)
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate)
   const data = buffer.getChannelData(0)
@@ -76,7 +76,7 @@ function noiseBuffer(ctx: AudioContext, kind: 'white' | 'brown'): AudioBuffer {
     if (kind === 'white') {
       data[index] = white
     } else {
-      // Random walk (integrasi white noise) = brown noise.
+      // Random walk (integration of white noise) = brown noise.
       last = (last + 0.02 * white) / 1.02
       data[index] = last * 3.5
     }
@@ -90,7 +90,7 @@ export function getAmbientSound(): AmbientSound {
   return current
 }
 
-/** Mulai/looping jenis ambient. 'off' = berhenti. Diam kalau audio terkunci. */
+/** Start/loop an ambient kind. 'off' = stop. Silent if audio is locked. */
 export function startAmbient(kind: AmbientSound): void {
   if (kind === 'off') {
     stopAmbient()
@@ -138,7 +138,7 @@ export function stopAmbient(): void {
     try {
       source.stop()
     } catch {
-      // Sudah berhenti — bukan kesalahan.
+      // Already stopped — not an error.
     }
     source.disconnect()
   }
@@ -150,7 +150,7 @@ export function stopAmbient(): void {
   current = 'off'
 }
 
-/** Volume 0–1; perubahan langsung terasa saat bersuara (ramp pendek). */
+/** Volume 0–1; changes take effect immediately while sounding (short ramp). */
 export function setAmbientVolume(next: number): void {
   volume = Math.min(1, Math.max(0, next))
   const ctx = getAudioContext()

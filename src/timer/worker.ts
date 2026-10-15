@@ -1,8 +1,9 @@
 /// <reference lib="webworker" />
 /**
- * Tick di Web Worker supaya interval tidak ikut di-throttle browser saat
- * tab background (PRD F2). Worker murni jam: menerima perintah run/stop dan
- * mengirim timestamp; mesin timer tetap di halaman utama.
+ * Tick in a Web Worker so the interval is not throttled by the browser
+ * while the tab is in the background (PRD F2). The worker is a pure clock:
+ * it receives run/stop commands and posts timestamps; the timer engine
+ * stays on the main page.
  */
 
 import type { TimerWorkerCommand, TimerWorkerEvent } from './protocol'

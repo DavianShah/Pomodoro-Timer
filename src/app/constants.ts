@@ -1,6 +1,6 @@
 export const SETTINGS_KEY = 'ritme.settings'
 
-/** Versi skema data lokal. Naikkan saat bentuk data berubah, lalu tangani migrasinya. */
+/** Local data schema version. Bump when the data shape changes, then handle the migration. */
 export const STORAGE_VERSION = 1
 
 export const DEFAULT_METHOD = 'pomodoro'

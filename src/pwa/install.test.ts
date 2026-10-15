@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { initInstallPrompt, useInstall } from './install'
 
-// Listener dipasang sekali, sama seperti di main.tsx.
+// Listeners are attached once, just like in main.tsx.
 initInstallPrompt()
 
-/** Kirim beforeinstallprompt buatan; kembalikan spy prompt-nya. */
+/** Dispatch a fake beforeinstallprompt; return its prompt spy. */
 function dispatchPrompt(): ReturnType<typeof vi.fn<() => Promise<void>>> {
   const prompt = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
   const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & {
@@ -15,8 +15,8 @@ function dispatchPrompt(): ReturnType<typeof vi.fn<() => Promise<void>>> {
   return prompt
 }
 
-describe('tombol Pasang aplikasi (F15)', () => {
-  it('tersedia hanya setelah browser menawarkan pemasangan', () => {
+describe('the Install app button (F15)', () => {
+  it('is available only after the browser offers installation', () => {
     useInstall.setState({ available: false })
     expect(useInstall.getState().available).toBe(false)
 
@@ -24,7 +24,7 @@ describe('tombol Pasang aplikasi (F15)', () => {
     expect(useInstall.getState().available).toBe(true)
   })
 
-  it('sekali dipakai hilang dan prompt tidak dipanggil dua kali', () => {
+  it('once used it disappears and the prompt is not called twice', () => {
     const prompt = dispatchPrompt()
     useInstall.getState().prompt()
     expect(prompt).toHaveBeenCalledTimes(1)
@@ -34,7 +34,7 @@ describe('tombol Pasang aplikasi (F15)', () => {
     expect(prompt).toHaveBeenCalledTimes(1)
   })
 
-  it('hilang setelah terpasang', () => {
+  it('disappears after installation', () => {
     dispatchPrompt()
     expect(useInstall.getState().available).toBe(true)
 

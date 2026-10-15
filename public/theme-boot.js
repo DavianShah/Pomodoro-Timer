@@ -1,10 +1,10 @@
 /**
- * Pratinjau tema sebelum render pertama (F12). Baca pilihan tema dari
- * localStorage lalu pasang data-theme di <html> sebelum gaya pertama dipakai,
- * supaya halaman tidak berkedip terang lalu gelap. Classic script, sinkron,
- * tanpa inline — lolos CSP script-src 'self'.
+ * Theme preview before the first render (F12). Reads the theme choice from
+ * localStorage and sets data-theme on <html> before the first styles are
+ * used, so the page does not flash light then dark. Classic script,
+ * synchronous, no inline — passes CSP script-src 'self'.
  *
- * Keggagalan baca dibiarkan: ThemeProvider memperbaiki setelah hydrate.
+ * A failed read is left alone: ThemeProvider fixes it after hydration.
  */
 ;(function bootTheme() {
   var KEY = 'ritme.v1.ritme.settings'
@@ -24,6 +24,6 @@
     document.documentElement.dataset.theme =
       choice === 'system' ? (prefersDark ? 'dark' : 'light') : choice
   } catch (error) {
-    // localStorage/JSON bisa gagal (mode privasi); biarkan aplikasi memperbaiki.
+    // localStorage/JSON can fail (private mode); let the app fix it.
   }
 })()

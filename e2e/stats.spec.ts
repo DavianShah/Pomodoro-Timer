@@ -92,13 +92,13 @@ const seedSessions: SeedSession[] = [
 ]
 
 const seedTasks: SeedTask[] = [
-  { id: 'task-seed', title: 'Tulis laporan', createdAt: 0, sessionCount: 2 },
+  { id: 'task-seed', title: 'Write report', createdAt: 0, sessionCount: 2 },
 ]
 
 /**
- * Tulis baris ke database IndexedDB yang SAMA dengan yang dibuka Dexie
- * (tabel `sessions`/`tasks`, skema v2 dengan indeks `date`), lalu muat ulang
- * supaya store task ikut terbaca. Tidak ada hook test di aplikasi.
+ * Write rows into the SAME IndexedDB database Dexie opens (the
+ * `sessions`/`tasks` tables, schema v2 with the `date` index), then reload
+ * so the task store reads them too. There are no test hooks in the app.
  */
 async function seedData(
   page: Page,
@@ -124,7 +124,7 @@ async function seedData(
     ({ sessions, tasks }: { sessions: SeedSession[]; tasks: SeedTask[] }) =>
       new Promise<void>((resolve, reject) => {
         const request = indexedDB.open('ritme')
-        request.onerror = () => reject(request.error ?? new Error('gagal membuka db'))
+        request.onerror = () => reject(request.error ?? new Error('failed to open db'))
         request.onsuccess = () => {
           const db = request.result
           const write = db.transaction(['sessions', 'tasks'], 'readwrite')
@@ -132,7 +132,7 @@ async function seedData(
           for (const task of tasks) write.objectStore('tasks').put(task)
           write.onerror = () => {
             db.close()
-            reject(write.error ?? new Error('gagal menulis baris'))
+            reject(write.error ?? new Error('failed to write rows'))
           }
           write.oncomplete = () => {
             db.close()
@@ -144,14 +144,14 @@ async function seedData(
   )
 
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Mulai', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
 }
 
-test('statistik: angka hari ini, streak, 7 hari, per metode, per task', async ({ page }) => {
+test('stats: today numbers, streak, 7 days, by method, by task', async ({ page }) => {
   await page.goto('/')
   await seedData(page)
 
-  const toggle = page.getByRole('button', { name: 'Statistik', exact: true })
+  const toggle = page.getByRole('button', { name: 'Statistics', exact: true })
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
@@ -162,81 +162,85 @@ test('statistik: angka hari ini, streak, 7 hari, per metode, per task', async ({
   const section = (heading: string) =>
     panel.locator('section', { has: page.getByRole('heading', { name: heading, exact: true }) })
 
-  const todaySection = section('Hari ini')
-  await expect(todaySection.getByText('1 jam', { exact: true })).toBeVisible()
-  await expect(todaySection.getByText('3 sesi selesai', { exact: true })).toBeVisible()
+  const todaySection = section('Today')
+  await expect(todaySection.getByText('1 hr', { exact: true })).toBeVisible()
+  await expect(todaySection.getByText('3 completed sessions', { exact: true })).toBeVisible()
 
   const streakSection = section('Streak')
-  await expect(streakSection.getByText('Sekarang: 2 hari', { exact: true })).toBeVisible()
-  await expect(streakSection.getByText('Terpanjang: 2 hari', { exact: true })).toBeVisible()
+  await expect(streakSection.getByText('Current: 2 days', { exact: true })).toBeVisible()
+  await expect(streakSection.getByText('Longest: 2 days', { exact: true })).toBeVisible()
 
-  const weekSection = section('7 hari terakhir')
-  await expect(weekSection.getByText('1 jam 25 menit · 4 sesi', { exact: true })).toBeVisible()
-  await expect(weekSection.getByText('tidak selesai: 1', { exact: true })).toBeVisible()
+  const weekSection = section('Last 7 days')
+  await expect(weekSection.getByText('1 hr 25 min · 4 sessions', { exact: true })).toBeVisible()
+  await expect(weekSection.getByText('incomplete: 1', { exact: true })).toBeVisible()
   await expect(weekSection.locator('table tbody tr')).toHaveCount(7)
   const yesterdayRow = weekSection.locator('table tbody tr').nth(5)
-  await expect(yesterdayRow.getByText('25 menit', { exact: true })).toBeVisible()
+  await expect(yesterdayRow.getByText('25 min', { exact: true })).toBeVisible()
 
-  const methodSection = section('Per metode')
+  const methodSection = section('By method')
   const methodRows = methodSection.locator('li')
   await expect(methodRows).toHaveCount(2)
   await expect(methodRows.nth(0)).toContainText('Pomodoro')
-  await expect(methodRows.nth(0)).toContainText('1 jam 15 menit · 3 sesi')
+  await expect(methodRows.nth(0)).toContainText('1 hr 15 min · 3 sessions')
   await expect(methodRows.nth(1)).toContainText('Flowtime')
-  await expect(methodRows.nth(1)).toContainText('10 menit · 1 sesi')
+  await expect(methodRows.nth(1)).toContainText('10 min · 1 session')
 
-  const taskSection = section('Per task')
-  await expect(taskSection.getByText('Tulis laporan', { exact: true })).toBeVisible()
-  await expect(taskSection.getByText('50 menit · 2 sesi', { exact: true })).toBeVisible()
+  const taskSection = section('By task')
+  await expect(taskSection.getByText('Write report', { exact: true })).toBeVisible()
+  await expect(taskSection.getByText('50 min · 2 sessions', { exact: true })).toBeVisible()
 
-  // Batang grafik memakai satu aksen token, bukan warna bebas.
+  // Chart bars use one accent token, not arbitrary colors.
   const bars = weekSection.locator('svg rect')
   await expect(bars).toHaveCount(2)
   await expect(bars.first()).toHaveCSS('fill', 'rgb(168, 68, 31)')
 
-  // Escape menutup panel; fokus kembali ke tombol Statistik.
+  // Escape closes the panel; focus returns to the Stats button.
   await page.keyboard.press('Escape')
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await expect(toggle).toBeFocused()
 })
 
-test('statistik kosong: satu baris datar tanpa grafik', async ({ page }) => {
+test('empty stats: a single flat line with no chart', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Statistik', exact: true }).click()
+  await page.getByRole('button', { name: 'Statistics', exact: true }).click()
 
   const panel = page.locator('#panel-statistik')
-  await expect(panel.getByText('Belum ada sesi fokus.', { exact: true })).toBeVisible()
+  await expect(panel.getByText('No focus sessions yet.', { exact: true })).toBeVisible()
   await expect(panel.locator('section')).toHaveCount(0)
 
-  await panel.getByRole('button', { name: 'Tutup' }).click()
+  await panel.getByRole('button', { name: 'Close' }).click()
   await expect(panel).toBeHidden()
 })
 
-test('panel statistik dan panel task saling menutup', async ({ page }) => {
-  // Lebar desktop: kedua tombol terlihat (di layar sempit panel menutupi kontrol).
-  await page.setViewportSize({ width: 1280, height: 800 })
+test('stats and task panels replace each other', async ({ page }) => {
   await page.goto('/')
 
-  const statsToggle = page.getByRole('button', { name: 'Statistik', exact: true })
+  const statsToggle = page.getByRole('button', { name: 'Statistics', exact: true })
   const taskToggle = page.getByRole('button', { name: 'Task', exact: true })
 
   await statsToggle.click()
   await expect(page.locator('#panel-statistik')).toBeVisible()
   await expect(statsToggle).toHaveAttribute('aria-expanded', 'true')
 
-  await taskToggle.click()
+  // The open panel covers the header toggles: switch panels via the T shortcut.
+  await page.keyboard.press('t')
   await expect(page.locator('#panel-task')).toBeVisible()
   await expect(page.locator('#panel-statistik')).toBeHidden()
   await expect(statsToggle).toHaveAttribute('aria-expanded', 'false')
 
-  await taskToggle.click()
+  // Escape closes and returns focus to the toggle (unchanged behavior).
+  await page.keyboard.press('Escape')
   await expect(page.locator('#panel-task')).toBeHidden()
+  await expect(taskToggle).toBeFocused()
+
   await statsToggle.click()
   await expect(page.locator('#panel-statistik')).toBeVisible()
   await expect(page.locator('#panel-task')).toBeHidden()
 })
 
-test('nudge Ultradian: jumlah sesi selesai hari ini tampil saat metode dipilih', async ({ page }) => {
+test('Ultradian nudge: today\u2019s completed session count shows when the method is picked', async ({
+  page,
+}) => {
   const ultradianSessions: SeedSession[] = [1, 2, 3, 4].map((n) => ({
     id: `seed-u${n}`,
     method: 'ultradian',
@@ -252,11 +256,11 @@ test('nudge Ultradian: jumlah sesi selesai hari ini tampil saat metode dipilih',
   await page.goto('/')
   await seedData(page, ultradianSessions, [])
 
-  await page.getByRole('button', { name: /Ultradian/ }).click()
+  await page.getByRole('radio', { name: /Ultradian/ }).check({ force: true })
   await expect(
-    page.getByText('Ultradian hari ini: 4 sesi · saran maksimal 3–4'),
+    page.getByText('Ultradian today: 4 sessions · suggested max 3–4'),
   ).toBeVisible()
 
-  await page.getByRole('button', { name: /Pomodoro/ }).first().click()
-  await expect(page.getByText(/Ultradian hari ini/)).toBeHidden()
+  await page.getByRole('radio', { name: /Pomodoro/ }).check({ force: true })
+  await expect(page.getByText(/Ultradian today/)).toBeHidden()
 })

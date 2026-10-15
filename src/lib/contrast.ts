@@ -1,6 +1,6 @@
 /**
- * Kontras WCAG dari nilai token sebenarnya. Angka-angka di DESIGN.md dan
- * public/manifest.webmanifest harus ikut nilai yang sama.
+ * WCAG contrast from the actual token values. The numbers in DESIGN.md and
+ * public/manifest.webmanifest must match these same values.
  */
 
 export interface Rgb {
@@ -18,7 +18,7 @@ export function hexToRgb(value: string): Rgb {
           .map((char) => char + char)
           .join('')
       : hex
-  if (!/^[0-9a-f]{6}$/i.test(full)) throw new Error(`Warna bukan heks 6 digit: ${value}`)
+  if (!/^[0-9a-f]{6}$/i.test(full)) throw new Error(`Not a 6-digit hex color: ${value}`)
   return {
     r: parseInt(full.slice(0, 2), 16),
     g: parseInt(full.slice(2, 4), 16),

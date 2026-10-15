@@ -21,12 +21,12 @@ afterEach(() => {
   configureMethods({ durations: {}, custom: null })
 })
 
-describe('konfigurasi metode', () => {
-  it('id tak dikenal jatuh ke Pomodoro', () => {
-    expect(createTimer('tidak-ada').method).toBe('pomodoro')
+describe('method configuration', () => {
+  it('an unknown id falls back to Pomodoro', () => {
+    expect(createTimer('does-not-exist').method).toBe('pomodoro')
   })
 
-  it('rencana fase dihitung dari konfigurasi, bukan percabangan metode', () => {
+  it('phase plans come from configuration, not per-method branching', () => {
     expect(plannedPhaseMs('pomodoro', 'focus')).toBe(25 * MINUTE)
     expect(plannedPhaseMs('pomodoro', 'break')).toBe(5 * MINUTE)
     expect(plannedPhaseMs('pomodoro', 'longBreak')).toBe(15 * MINUTE)
@@ -35,8 +35,8 @@ describe('konfigurasi metode', () => {
   })
 })
 
-describe('durasi override dan Custom (PRD F3)', () => {
-  it('plannedPhaseMs memakai override pengguna', () => {
+describe('duration overrides and Custom (PRD F3)', () => {
+  it('plannedPhaseMs uses the user override', () => {
     configureMethods({
       durations: { pomodoro: { focusMs: 45 * MINUTE, breakMs: 10 * MINUTE } },
       custom: null,
@@ -46,7 +46,7 @@ describe('durasi override dan Custom (PRD F3)', () => {
     expect(plannedPhaseMs('pomodoro', 'longBreak')).toBe(15 * MINUTE)
   })
 
-  it('mesin Custom: fokus/istirahat override, longBreak tiap siklus ke-3', () => {
+  it('Custom engine: focus/break overrides, longBreak every 3rd cycle', () => {
     configureMethods({
       durations: {},
       custom: { focusMs: 40 * MINUTE, breakMs: 8 * MINUTE, longBreakMs: 12 * MINUTE, cycle: 3 },
@@ -74,7 +74,7 @@ describe('durasi override dan Custom (PRD F3)', () => {
     expect(thirdDone.remainingMs).toBe(12 * MINUTE)
   })
 
-  it('Custom tanpa istirahat panjang: siklus melingkar, tanpa longBreak', () => {
+  it('Custom without a long break: the cycle wraps, no longBreak', () => {
     configureMethods({
       durations: {},
       custom: { focusMs: 10 * MINUTE, breakMs: 2 * MINUTE, longBreakMs: null, cycle: 4 },
@@ -89,13 +89,13 @@ describe('durasi override dan Custom (PRD F3)', () => {
 })
 
 describe('countdown', () => {
-  it('mulai menetapkan endTime dari timestamp, bukan hitungan tick', () => {
+  it('start sets endTime from the timestamp, not tick counting', () => {
     const state = start(createTimer('pomodoro'), 1_000)
     expect(state.running).toBe(true)
     expect(state.endTime).toBe(1_000 + 25 * MINUTE)
   })
 
-  it('jeda membekukan sisa waktu lalu lanjut dari sana', () => {
+  it('pause freezes the remaining time, then resumes from there', () => {
     let state = start(createTimer('pomodoro'), 0)
     state = pause(state, 10 * MINUTE)
     expect(state.running).toBe(false)
@@ -107,21 +107,21 @@ describe('countdown', () => {
     expect(remaining(state, 40 * MINUTE)).toBe(5 * MINUTE)
   })
 
-  it('drift nol: lompatan 60 menit (tab background/sleep) dihitung dari endTime', () => {
+  it('zero drift: a 60-minute jump (background tab/sleep) is computed from endTime', () => {
     vi.useFakeTimers()
     vi.setSystemTime(0)
 
     let state = start(createTimer('ultradian'), Date.now())
-    // Satu pulse setelah tidur 60 menit + 400 ms; tidak ada tick di antaranya.
+    // One pulse after a 60-minute sleep + 400 ms; no ticks in between.
     vi.setSystemTime(60 * MINUTE + 400)
     state = tick(state, Date.now())
 
     expect(state.running).toBe(true)
-    // Sisa harus tepat 90:00 − 60:00.400, selisih 0 < 1 detik (PRD bagian 13).
+    // Remaining must be exactly 90:00 − 60:00.400, difference 0 < 1 second (PRD section 13).
     expect(remaining(state, Date.now())).toBe(30 * MINUTE - 400)
   })
 
-  it('bangun tidur setelah endTime: fase dianggap selesai, istirahat siap dijalankan', () => {
+  it('waking after endTime: the phase counts as finished, break ready to run', () => {
     vi.useFakeTimers()
     vi.setSystemTime(0)
 
@@ -136,19 +136,19 @@ describe('countdown', () => {
     expect(displayMs(state, Date.now())).toBe(5 * MINUTE)
   })
 
-  it('tick sebelum endTime tidak mengubah apa pun', () => {
+  it('a tick before endTime changes nothing', () => {
     const state = start(createTimer('pomodoro'), 0)
     expect(tick(state, 24 * MINUTE)).toBe(state)
   })
 
-  it('lewati fase fokus langsung ke istirahat', () => {
+  it('skipping the focus phase goes straight to the break', () => {
     const state = skip(start(createTimer('pomodoro'), 0), 3 * MINUTE)
     expect(state.phase).toBe('break')
     expect(state.running).toBe(false)
     expect(state.remainingMs).toBe(5 * MINUTE)
   })
 
-  it('siklus Pomodoro: istirahat panjang tiap 4 sesi lalu kembali ke 1', () => {
+  it('Pomodoro cycle: a long break every 4 sessions, then back to 1', () => {
     let state = createTimer('pomodoro')
 
     for (let cycle = 1; cycle <= 4; cycle += 1) {
@@ -163,7 +163,7 @@ describe('countdown', () => {
     expect(state.cycleIndex).toBe(1)
   })
 
-  it('52/17 tidak pernah punya istirahat panjang', () => {
+  it('52/17 never has a long break', () => {
     let state = start(createTimer('52-17'), 0)
     state = skip(state, 0)
     expect(state.phase).toBe('break')
@@ -173,7 +173,7 @@ describe('countdown', () => {
     expect(state.cycleIndex).toBe(1)
   })
 
-  it('reset mengembalikan ke fokus awal', () => {
+  it('reset returns to the initial focus', () => {
     const state = reset(skip(start(createTimer('pomodoro'), 0), 0))
     expect(state.phase).toBe('focus')
     expect(state.running).toBe(false)
@@ -182,8 +182,8 @@ describe('countdown', () => {
   })
 })
 
-describe('hitung maju (Flowtime)', () => {
-  it('fokus tidak pernah selesai sendiri — tidak ada alarm', () => {
+describe('count-up (Flowtime)', () => {
+  it('focus never finishes on its own — no alarm', () => {
     vi.useFakeTimers()
     vi.setSystemTime(0)
 
@@ -197,7 +197,7 @@ describe('hitung maju (Flowtime)', () => {
     expect(displayMs(state, Date.now())).toBe(3 * 60 * MINUTE)
   })
 
-  it('jeda dan lanjut menumpuk durasi fokus dengan benar', () => {
+  it('pausing and resuming accumulates focus time correctly', () => {
     let state = start(createTimer('flowtime'), 0)
     state = pause(state, 10 * MINUTE)
     expect(state.elapsedMs).toBe(10 * MINUTE)
@@ -207,7 +207,7 @@ describe('hitung maju (Flowtime)', () => {
     expect(elapsed(state, 35 * MINUTE)).toBe(15 * MINUTE)
   })
 
-  it('istirahat proporsional mengikuti aturan PRD di semua batas', () => {
+  it('proportional breaks follow the PRD rules at every boundary', () => {
     const cases: Array<[number, number]> = [
       [0, 5 * MINUTE],
       [25 * MINUTE - 1_000, 5 * MINUTE],
@@ -226,7 +226,7 @@ describe('hitung maju (Flowtime)', () => {
     }
   })
 
-  it('istirahat Flowtime tetap countdown biasa', () => {
+  it('the Flowtime break stays a regular countdown', () => {
     let state = skip(start(createTimer('flowtime'), 0), 25 * MINUTE)
     state = start(state, 60_000)
     expect(state.endTime).toBe(60_000 + 8 * MINUTE)
@@ -235,19 +235,19 @@ describe('hitung maju (Flowtime)', () => {
 })
 
 describe('formatClock', () => {
-  it('menit tanpa batas, detik dua digit, tidak pernah negatif', () => {
+  it('unlimited minutes, two-digit seconds, never negative', () => {
     expect(formatClock(25 * MINUTE)).toBe('25:00')
     expect(formatClock(90 * MINUTE)).toBe('90:00')
-    expect(formatClock(65_000)).toBe('1:05')
-    expect(formatClock(0)).toBe('0:00')
-    expect(formatClock(-5_000)).toBe('0:00')
+    expect(formatClock(65_000)).toBe('01:05')
+    expect(formatClock(0)).toBe('00:00')
+    expect(formatClock(-5_000)).toBe('00:00')
   })
 })
 
 describe('time boxing', () => {
   const blockEnd = 30 * MINUTE
 
-  it('mulai butuh blok: endTime null atau sudah lewat → no-op', () => {
+  it('start needs a block: endTime null or already past → no-op', () => {
     const idle = createTimer('timeboxing')
     expect(idle.endTime).toBeNull()
     expect(start(idle, 1_000)).toBe(idle)
@@ -256,7 +256,7 @@ describe('time boxing', () => {
     expect(start(stale, 2_000)).toBe(stale)
   })
 
-  it('mulai di dalam blok: running, endTime tetap penanda akhir blok', () => {
+  it('start inside a block: running, endTime stays the block-end marker', () => {
     const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), 5 * MINUTE)
     expect(running.running).toBe(true)
     expect(running.endTime).toBe(blockEnd)
@@ -264,12 +264,12 @@ describe('time boxing', () => {
     expect(running.remainingMs).toBeNull()
   })
 
-  it('jeda no-op — blok berjalan mengikuti jam dinding', () => {
+  it('pause is a no-op — a running block follows the wall clock', () => {
     const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), 5 * MINUTE)
     expect(pause(running, 10 * MINUTE)).toBe(running)
   })
 
-  it('lewati akhir blok: berhenti, endTime dan fase dipertahankan untuk pilihan', () => {
+  it('skipping the block end: stops, endTime and phase kept for the prompt', () => {
     const running = start(setBoxingEnd(createTimer('timeboxing'), blockEnd), 5 * MINUTE)
     const ended = tick(running, blockEnd + 1_000)
     expect(ended.running).toBe(false)
@@ -280,7 +280,7 @@ describe('time boxing', () => {
     expect(endsFocusSession(ended, ended)).toBe(false)
   })
 
-  it('setBoxingEnd menyetel dan membersihkan penanda blok', () => {
+  it('setBoxingEnd sets and clears the block marker', () => {
     const idle = createTimer('timeboxing')
     expect(setBoxingEnd(idle, blockEnd).endTime).toBe(blockEnd)
     expect(setBoxingEnd(idle, null).endTime).toBeNull()
